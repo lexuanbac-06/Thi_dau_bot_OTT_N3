@@ -5,8 +5,15 @@
 |---|---|
 | `engine.py` | Luật chơi, sandbox chạy bot, 3 bot BTC (`btc0` ngẫu nhiên, `btc1` tham lam, `btc2` chấm điểm 1 nước), trận BO2. Thí sinh test local: `python engine.py test bot.py` |
 | `tournament.py` | Đăng ký/nộp bài, thi đầu vào, chia bảng, chấm ngày (7 trận), vé vớt, lên vòng + CLI quản trị |
-| `server.py` | API Flask cho thí sinh: `/register`, `/submit`, `/me`, `/leaderboard` |
+| `server.py` | API thí sinh và trang quản trị tại `/admin` |
 | `sample_bot.py` | Bot mẫu + mô tả giao thức cho thí sinh |
+
+## Quản trị qua website
+- Mở `/admin` và đăng nhập bằng mật khẩu chung cấu hình trong biến môi trường `ADMIN_PASSWORD`.
+- Trên Render, đặt `ADMIN_PASSWORD` và `FLASK_SECRET_KEY` trong mục Environment; không ghi các giá trị này vào GitHub.
+- Dùng trang quản trị để mở/đóng nhận bài, xem danh sách thí sinh, chấm đầu vào và chia bảng, chốt ngày, chấm ngày. Chấm ngày cuối tự xét lên vòng theo cấu hình hiện có.
+- Thao tác chấm chạy nền và hiển thị lỗi/trạng thái trên trang. Dùng một Gunicorn worker (`gunicorn server:app --workers 1 --bind 0.0.0.0:$PORT`) để khóa thao tác quản trị trong bộ nhớ có hiệu lực.
+- Mỗi thay đổi code cần được đẩy lên GitHub để Render deploy lại.
 
 ## Giao thức bot
 Bot là file `.py` đọc stdin / ghi stdout. Mỗi lượt nhận 1 dòng JSON

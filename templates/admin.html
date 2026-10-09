@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quản trị cuộc thi — OTTv2</title>
+  <style>
+    :root { font-family: Inter, system-ui, "Segoe UI", sans-serif; color:#172033; background:#f4f6fb; }
+    * { box-sizing:border-box; }
+    body { max-width:1200px; margin:0 auto; padding:28px 20px 50px; }
+    header,.row { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+    h1 { margin:0; font-size:clamp(1.6rem,4vw,2.3rem); }
+    h2 { margin:0 0 14px; font-size:1.1rem; }
+    p { color:#657188; line-height:1.5; }
+    a { color:#4f46e5; }
+    .brand { color:#4f46e5; font-weight:800; letter-spacing:.12em; font-size:.78rem; margin-bottom:8px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; margin:20px 0; }
+    .card { background:#fff; border:1px solid #e3e8f1; border-radius:14px; padding:20px; box-shadow:0 8px 24px #1e293b08; }
+    .stat { background:#f6f7fb; border-radius:9px; padding:12px; }
+    .stat small { display:block; color:#69758a; margin-bottom:5px; }
+    .stat strong { overflow-wrap:anywhere; }
+    button { border:0; background:#4f46e5; color:#fff; padding:10px 14px; border-radius:9px; font:inherit; font-weight:700; cursor:pointer; }
+    button.secondary { color:#334155; background:#eef1f7; }
+    button.danger { background:#a12b2b; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .notice { margin:14px 0; padding:12px 14px; border-radius:9px; background:#eef2ff; color:#3730a3; }
+    .notice.error { background:#fff0f0; color:#a12b2b; }
+    .notice.warning { background:#fff7e6; color:#805500; }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; min-width:650px; }
+    th,td { text-align:left; padding:10px 8px; border-bottom:1px solid #edf0f5; }
+    th { color:#647087; font-size:.86rem; }
+    code { overflow-wrap:anywhere; }
+    @media(max-width:600px) { body { padding:18px 12px 36px; } }
+  </style>
+</head>
+<body>
+  <header>
+    <div><div class="brand">OTTv2 · BOT TOURNAMENT</div><h1>Ban tổ chức</h1></div>
+    <div class="row"><a href="/">Trang thí sinh</a><button class="secondary" id="logout">Đăng xuất</button></div>
+  </header>
+  <div id="notice" class="notice" role="status">Đang tải dữ liệu cuộc thi…</div>
+  <div class="notice warning"><strong>Lưu ý khi chấm:</strong> các thao tác chấm sẽ chạy file Python thí sinh trên instance Render. Chỉ chấm bot từ nguồn bạn tin cậy; không mở nhận bài công khai nếu chưa cô lập môi trường chạy bot.</div>
+  <section class="grid" id="overview"></section>
+  <section class="card">
+    <h2>Điều khiển cuộc thi</h2>
+    <div class="row" style="justify-content:flex-start">
+      <button class="secondary" id="toggle-submissions"></button>
+      <button id="entry-close">Chấm đầu vào và chia bảng</button>
+      <button class="secondary" id="close-day">Chốt bài ngày thi</button>
+      <button id="grade-day">Chấm ngày / xét lên vòng</button>
+    </div>
+    <p>Chấm ngày cuối sẽ tự động xét người đi tiếp và chia bảng vòng sau theo luật hiện có.</p>
+  </section>
+  <section class="card" style="margin-top:16px">
+    <h2>Thí sinh</h2>
+    <div class="table-wrap">
+      <table><thead><tr><th>Tên</th><th>Trạng thái</th><th>Điểm đầu vào</th><th>Bảng hiện tại</th><th>Có bot</th><th>Đã nộp kỳ này</th></tr></thead><tbody id="entrants"></tbody></table>
+    </div>
+  </section>
+<script>
+  const csrf = {{ csrf|tojson }};
+  const $ = id => document.getElementById(id);
+  const escapeHtml = value => String(value ?? "—").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+  function message(text, kind = "") { $("notice").textContent = text; $("notice").className = `notice ${kind}`.trim(); }
+  async function api(path, options = {}) {
+    const response = await fetch(path, {...options, headers:{...(options.headers || {}), ...(options.method === "POST" ? {"X-CSRF-Token":csrf} : {})}});
+    const data = await response.json();
+    if (response.status === 401) { location.href = "/admin"; throw new Error("Phiên đăng nhập hết hạn."); }
+    if (!response.ok) throw new Error(data.error || "Yêu cầu không thành công.");
+    return data;
+  }
+  async function refresh() {
+    try {
+      const [data, job] = await Promise.all([api("/admin/api/overview"), api("/admin/api/job")]);
+      $("overview").innerHTML = [
+        ["Giai đoạn",data.phase],["Vòng",data.round],["Ngày mở",data.day],
+        ["Ngày chờ chấm",data.pending],["Số thí sinh",data.entrants.length],
+        ["Nhận bài",data.accepting_submissions ? "Đang mở" : "Đang đóng"]
+      ].map(([label,value]) => `<div class="stat"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong></div>`).join("");
+      $("entrants").innerHTML = data.entrants.length ? data.entrants.map(p => `<tr><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.status)}</td><td>${escapeHtml(p.entry)}</td><td>${escapeHtml(p.group)}</td><td>${p.has_bot ? "Có" : "Chưa"}</td><td>${p.submitted ? "Có" : "Chưa"}</td></tr>`).join("") : `<tr><td colspan="6">Chưa có thí sinh.</td></tr>`;
+      $("toggle-submissions").textContent = data.accepting_submissions ? "Đóng nhận bài" : "Mở nhận bài";
+      $("toggle-submissions").dataset.open = String(data.accepting_submissions);
+      $("entry-close").disabled = data.phase !== "entry" || job.state === "running";
+      $("close-day").disabled = data.phase !== "round" || !!data.pending || job.state === "running";
+      $("grade-day").disabled = data.phase !== "round" || !data.pending || job.state === "running";
+      $("toggle-submissions").disabled = data.phase === "done" || job.state === "running";
+      if (job.state === "running") message(`Đang chạy: ${job.action}. Có thể mất thời gian; không bấm lại.`, "");
+      else if (job.state === "failed") message(`Thao tác "${job.action}" thất bại: ${job.error}`, "error");
+      else if (job.state === "complete") message(`Hoàn tất: ${job.action}. Bảng thí sinh đã được cập nhật.`, "");
+      else message("Dữ liệu cuộc thi đã cập nhật.", "");
+    } catch(e) { message(e.message, "error"); }
+  }
+  async function runAction(action, confirmation) {
+    if (!confirm(confirmation)) return;
+    try { await api(`/admin/api/actions/${action}`, {method:"POST"}); message("Đã bắt đầu thao tác.", ""); await refresh(); }
+    catch(e) { message(e.message, "error"); }
+  }
+  $("toggle-submissions").onclick = async () => {
+    const opening = $("toggle-submissions").dataset.open !== "true";
+    try { await api("/admin/api/submissions", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({accepting:opening})}); await refresh(); }
+    catch(e) { message(e.message, "error"); }
+  };
+  $("entry-close").onclick = () => runAction("entry-close", "Bắt đầu chấm đầu vào? Thao tác sẽ khóa nộp bài, chấm bot, loại theo điểm và chia bảng.");
+  $("close-day").onclick = () => runAction("close-day", "Chốt snapshot bài nộp của ngày hiện tại? Bài nộp sau đó sẽ thuộc ngày kế tiếp.");
+  $("grade-day").onclick = () => runAction("grade-day", "Bắt đầu chấm ngày đang chờ? Nếu là ngày cuối, hệ thống sẽ tự xét lên vòng.");
+  $("logout").onclick = async () => { try { await api("/admin/logout", {method:"POST"}); location.href="/admin"; } catch(e) { message(e.message, "error"); } };
+  refresh();
+  setInterval(refresh, 3000);
+</script>
+</body>
+</html>

@@ -97,6 +97,8 @@ def submit(name, src):
     ph = get("phase", "entry")
     if ph not in ("entry", "round"):
         raise ValueError("Cuộc thi không nhận bài lúc này")
+    if get("accepting_submissions", "1") != "1":
+        raise ValueError("Ban tổ chức đang tạm đóng nhận bài")
     u = q("select status from users where name=?", (name,))[0]
     if ph == "round" and u["status"] != "active":
         raise ValueError("Bạn đã bị loại")
@@ -291,6 +293,48 @@ def leaderboard(name, day=None):
         day = d or 0
     return [dict(r) for r in q("select rank,name,pts,gs from daily where rnd=? and day=? and grp=? order by rank",
                                (rnd, day, m[0]["grp"]))]
+
+
+def admin_overview():
+    phase = get("phase", "entry")
+    rnd = int(get("round", 0) or 0)
+    day = int(get("day", 0) or 0)
+    pending = int(get("pending", 0) or 0)
+    submission_day = 0 if phase == "entry" else day
+    submissions = {
+        row["name"]: row["submitted"]
+        for row in q(
+            "select name,1 submitted from subs where rnd=? and day=?",
+            (0 if phase == "entry" else rnd, submission_day),
+        )
+    }
+    members = {
+        row["name"]: row["grp"]
+        for row in q("select name,grp from member where rnd=?", (rnd,))
+    } if rnd else {}
+    entrants = []
+    for row in q("select name,status,entry from users order by name"):
+        name = row["name"]
+        entrants.append({
+            "name": name,
+            "status": row["status"],
+            "entry": row["entry"],
+            "group": members.get(name),
+            "has_bot": latest(name) is not None,
+            "submitted": bool(submissions.get(name)),
+        })
+    return {
+        "phase": phase,
+        "round": rnd or None,
+        "day": day or None,
+        "pending": pending or None,
+        "accepting_submissions": get("accepting_submissions", "1") == "1",
+        "counts": {
+            row["status"]: row["count"]
+            for row in q("select status,count(*) count from users group by status")
+        },
+        "entrants": entrants,
+    }
 
 
 # ---------------- CLI ----------------

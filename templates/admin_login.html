@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Đăng nhập ban tổ chức — OTTv2</title>
+  <style>
+    :root { font-family: Inter, system-ui, "Segoe UI", sans-serif; color:#172033; background:#f4f6fb; }
+    * { box-sizing:border-box; }
+    body { max-width:520px; margin:12vh auto; padding:20px; }
+    main { background:#fff; border:1px solid #e3e8f1; border-radius:16px; padding:26px; box-shadow:0 8px 24px #1e293b08; }
+    h1 { margin:0 0 10px; font-size:1.5rem; }
+    p { color:#657188; line-height:1.55; }
+    label { display:block; font-weight:650; margin:18px 0 7px; }
+    input { width:100%; padding:12px; border:1px solid #d8deea; border-radius:9px; font:inherit; }
+    button { border:0; background:#4f46e5; color:white; padding:11px 15px; border-radius:9px; font:inherit; font-weight:700; cursor:pointer; margin-top:15px; }
+    .error { padding:12px; border-radius:9px; background:#fff0f0; color:#a12b2b; }
+    a { color:#4f46e5; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Ban tổ chức</h1>
+    {% if not configured %}
+      <p class="error">Chưa cấu hình mật khẩu quản trị. Hãy thêm biến môi trường <code>ADMIN_PASSWORD</code> trong Render rồi deploy lại.</p>
+    {% else %}
+      <p>Đăng nhập để quản lý cuộc thi. Dùng mật khẩu quản trị do chủ dự án cấu hình.</p>
+      {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+      <form method="post" action="/admin">
+        <input type="hidden" name="csrf_token" value="{{ csrf }}">
+        <label for="password">Mật khẩu quản trị</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required autofocus>
+        <button type="submit">Đăng nhập</button>
+      </form>
+    {% endif %}
+    <p><a href="/">Quay lại trang thí sinh</a></p>
+  </main>
+</body>
+</html>
