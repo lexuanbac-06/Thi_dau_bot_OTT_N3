@@ -6,7 +6,7 @@ POST /submit     header X-Token, form file=@bot.py    -> {"ok": true}
 GET  /me         header X-Token                       -> trạng thái, bảng, thứ hạng các ngày
 GET  /leaderboard header X-Token  [?day=3]            -> BXH bảng của mình (ngày mới nhất đã chấm)
 """
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_from_directory
 import tournament as T
 
 app = Flask(__name__)
@@ -19,6 +19,12 @@ T.init()
 def home():
     """Giao diện web cho người chơi."""
     return render_template("index.html")
+
+
+@app.get("/sample_bot.py")
+def sample_bot():
+    """Cho thí sinh xem mã nguồn bot mẫu."""
+    return send_from_directory(app.root_path, "sample_bot.py", mimetype="text/plain")
 
 
 def auth():
