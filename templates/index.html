@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OTTv2 — Thi đấu bot</title>
+  <style>
+    :root { font-family: Inter, system-ui, "Segoe UI", sans-serif; color: #172033; background: #f4f6fb; }
+    * { box-sizing: border-box; }
+    body { max-width: 1050px; margin: 0 auto; padding: 34px 20px 60px; }
+    header { display:flex; justify-content:space-between; align-items:center; gap:20px; margin-bottom:24px; }
+    h1 { margin:0; font-size: clamp(1.7rem, 4vw, 2.5rem); letter-spacing:-.04em; }
+    h2 { margin:0 0 15px; font-size:1.1rem; }
+    p { color:#657188; line-height:1.55; }
+    .brand { color:#4f46e5; font-weight:800; letter-spacing:.12em; font-size:.78rem; }
+    .grid { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap:16px; }
+    .card { background:white; border:1px solid #e3e8f1; border-radius:16px; padding:22px; box-shadow:0 8px 24px #1e293b08; }
+    .wide { grid-column:1/-1; }
+    label { display:block; font-size:.9rem; font-weight:650; margin:12px 0 7px; }
+    input { width:100%; padding:11px 12px; border:1px solid #d8deea; border-radius:9px; font:inherit; background:#fff; }
+    input:focus { outline:3px solid #4f46e522; border-color:#6962ed; }
+    button { border:0; background:#4f46e5; color:white; padding:11px 15px; border-radius:9px; font:inherit; font-weight:700; cursor:pointer; margin-top:13px; }
+    button:hover { background:#3f38c9; } button.secondary { color:#334155; background:#eef1f7; }
+    .row { display:flex; gap:9px; align-items:center; flex-wrap:wrap; }
+    .row input { flex:1; min-width:180px; }
+    .hint { font-size:.87rem; }
+    #notice { display:none; padding:12px 15px; border-radius:10px; margin:0 0 16px; background:#eef2ff; color:#3730a3; }
+    #notice.error { display:block; background:#fff0f0; color:#a12b2b; }
+    #notice.ok { display:block; background:#eaf8ef; color:#17683a; }
+    .hidden { display:none; }
+    .status { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; }
+    .stat { padding:12px; background:#f6f7fb; border-radius:10px; }
+    .stat small { display:block; color:#69758a; margin-bottom:5px; }
+    .stat strong { overflow-wrap:anywhere; }
+    .table-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; min-width:480px; }
+    th,td { text-align:left; padding:11px 9px; border-bottom:1px solid #edf0f5; }
+    th { color:#647087; font-size:.86rem; }
+    .empty { padding:15px; color:#69758a; background:#f6f7fb; border-radius:9px; }
+    @media(max-width:700px) { .grid { grid-template-columns:1fr; } .wide { grid-column:auto; } header { align-items:flex-start; flex-direction:column; } }
+  </style>
+</head>
+<body>
+  <header><div><div class="brand">OTTv2 · BOT TOURNAMENT</div><h1>Thi đấu bot</h1><p>Đăng ký, nộp bot Python và theo dõi kết quả thi đấu.</p></div></header>
+  <div id="notice" role="status"></div>
+  <main class="grid">
+    <section class="card" id="register-card">
+      <h2>Tạo tài khoản</h2>
+      <p class="hint">Tên gồm 3–20 ký tự: chữ cái, chữ số hoặc dấu gạch dưới.</p>
+      <form id="register-form"><label for="name">Tên thi đấu</label><input id="name" required minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" placeholder="ten_cua_ban"><button type="submit">Đăng ký</button></form>
+    </section>
+    <section class="card">
+      <h2>Tài khoản của bạn</h2>
+      <p class="hint">Token được lưu trên trình duyệt này. Hãy giữ kín token.</p>
+      <label for="token">Token</label><div class="row"><input id="token" type="password" autocomplete="off" placeholder="Token đăng ký"><button class="secondary" id="save-token" type="button">Lưu token</button></div>
+      <div class="row"><button id="refresh" type="button">Xem trạng thái</button><button class="secondary" id="clear-token" type="button">Đăng xuất</button></div>
+    </section>
+    <section class="card">
+      <h2>Nộp bot</h2><p class="hint">Chọn file Python, tối đa 64 KB.</p>
+      <form id="submit-form"><label for="botfile">File bot (.py)</label><input id="botfile" type="file" accept=".py,text/x-python" required><button type="submit">Nộp bài</button></form>
+    </section>
+    <section class="card">
+      <h2>Trạng thái thi đấu</h2><div id="status" class="empty">Nhập token hoặc đăng ký để xem trạng thái.</div>
+    </section>
+    <section class="card wide">
+      <div class="row" style="justify-content:space-between"><h2>Bảng xếp hạng</h2><button class="secondary" id="refresh-board" type="button">Tải bảng</button></div>
+      <div id="board" class="empty">Đăng nhập để xem bảng xếp hạng của bảng bạn.</div>
+    </section>
+    <section class="card wide"><h2>Viết bot như thế nào?</h2><p>Mỗi lượt bot nhận trạng thái bàn cờ dạng JSON và in nước đi <code>x y nx ny</code>. Xem file <code>sample_bot.py</code> trong thư mục dự án để bắt đầu.</p></section>
+  </main>
+<script>
+  const $ = id => document.getElementById(id);
+  const notice = (text, kind = "ok") => { const el = $("notice"); el.textContent = text; el.className = kind; el.style.display = "block"; window.scrollTo({top:0,behavior:"smooth"}); };
+  const token = () => $("token").value.trim();
+  const headers = () => ({"X-Token": token()});
+  async function api(path, options = {}) {
+    const response = await fetch(path, options);
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Yêu cầu không thành công");
+    return data;
+  }
+  function saveToken(value) { $("token").value = value; localStorage.setItem("ott_token", value); }
+  $("token").value = localStorage.getItem("ott_token") || "";
+  $("save-token").onclick = () => { if (!token()) return notice("Vui lòng nhập token.", "error"); saveToken(token()); notice("Đã lưu token trên trình duyệt này."); };
+  $("clear-token").onclick = () => { localStorage.removeItem("ott_token"); $("token").value = ""; $("status").textContent = "Đã đăng xuất."; $("board").textContent = "Đăng nhập để xem bảng xếp hạng của bảng bạn."; notice("Đã xóa token khỏi trình duyệt."); };
+  $("register-form").onsubmit = async event => { event.preventDefault(); try { const data = await api("/register", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:$("name").value.trim()})}); saveToken(data.token); notice("Đăng ký thành công! Token đã được lưu trên trình duyệt."); await refreshAll(); } catch(e) { notice(e.message, "error"); } };
+  $("submit-form").onsubmit = async event => { event.preventDefault(); if (!token()) return notice("Hãy đăng nhập hoặc đăng ký trước khi nộp bot.", "error"); const file = $("botfile").files[0]; if (!file) return; const form = new FormData(); form.append("file",file); try { await api("/submit", {method:"POST",headers:headers(),body:form}); notice("Nộp bot thành công."); await refreshAll(); } catch(e) { notice(e.message, "error"); } };
+  async function refreshStatus() { if (!token()) return notice("Hãy nhập token hoặc đăng ký trước.", "error"); try { const d = await api("/me",{headers:headers()}); const rows = [["Người chơi",d.name],["Trạng thái",d.status],["Giai đoạn",d.phase],["Vòng",d.round ?? "—"],["Ngày mở",d.open_day ?? "—"],["Bảng",d.group ?? "Chưa chia bảng"],["Điểm đầu vào",d.entry ?? "—"],["Hạng trung bình",d.avg_rank ?? "—"]]; $("status").className="status"; $("status").innerHTML=rows.map(([k,v])=>`<div class="stat"><small>${k}</small><strong>${v}</strong></div>`).join(""); } catch(e) { notice(e.message,"error"); } }
+  async function refreshBoard() { if (!token()) return notice("Hãy nhập token hoặc đăng ký trước.","error"); try { const rows=await api("/leaderboard",{headers:headers()}); if (!rows.length) { $("board").className="empty"; $("board").textContent="Chưa có bảng xếp hạng cho tài khoản này hoặc ngày thi chưa được chấm."; return; } $("board").className="table-wrap"; $("board").innerHTML=`<table><thead><tr><th>Hạng</th><th>Người chơi</th><th>Điểm</th><th>Điểm ván</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.rank}</td><td>${r.name}</td><td>${r.pts}</td><td>${r.gs}</td></tr>`).join("")}</tbody></table>`; } catch(e) { notice(e.message,"error"); } }
+  async function refreshAll() { await refreshStatus(); await refreshBoard(); }
+  $("refresh").onclick=refreshStatus; $("refresh-board").onclick=refreshBoard;
+</script>
+</body>
+</html>

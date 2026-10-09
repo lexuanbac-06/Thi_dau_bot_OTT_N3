@@ -1,0 +1,8 @@
+THU TU CHAY (nhap dup tung file .bat, de tat ca file CHUNG 1 thu muc, vi du C:\ott, KHONG chay trong file zip):
+1. setup.bat          (1 lan)
+2. demo.bat           (chay thu, tuy chon; xong xoa ott.db, bots, snaps)
+3. start_server.bat   (giu cua so mo)
+4. entry_close.bat    (khi het han thi dau vao)
+5. schedule.bat       (chuot phai > Run as administrator, ngay sau buoc 4)
+6. status.bat         (xem tien do)
+Loi gi: chay check.bat
