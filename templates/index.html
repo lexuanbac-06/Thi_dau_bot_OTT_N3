@@ -52,7 +52,7 @@
     <section class="card">
       <h2>Tài khoản của bạn</h2>
       <p class="hint">Token được lưu trên trình duyệt này. Hãy giữ kín token.</p>
-      <label for="token">Token</label><div class="row"><input id="token" type="password" autocomplete="off" placeholder="Token đăng ký"><button class="secondary" id="save-token" type="button">Lưu token</button></div>
+      <label for="token">Token</label><div class="row"><input id="token" type="text" autocomplete="off" placeholder="Token đăng ký"><button class="secondary" id="copy-token" type="button">Sao chép token</button><button class="secondary" id="save-token" type="button">Lưu token</button></div>
       <div class="row"><button id="refresh" type="button">Xem trạng thái</button><button class="secondary" id="clear-token" type="button">Đăng xuất</button></div>
     </section>
     <section class="card">
@@ -79,11 +79,41 @@
     if (!response.ok) throw new Error(data.error || "Yêu cầu không thành công");
     return data;
   }
-  function saveToken(value) { $("token").value = value; localStorage.setItem("ott_token", value); }
-  $("token").value = localStorage.getItem("ott_token") || "";
-  $("save-token").onclick = () => { if (!token()) return notice("Vui lòng nhập token.", "error"); saveToken(token()); notice("Đã lưu token trên trình duyệt này."); };
+  function saveToken(value) {
+    $("token").value = value;
+    try {
+      localStorage.setItem("ott_token", value);
+      if (localStorage.getItem("ott_token") !== value) throw new Error("Token không được lưu lại.");
+      return true;
+    } catch (e) {
+      notice("Trình duyệt không cho lưu token. Token vẫn đang hiện trong ô; hãy sao chép và giữ lại.", "error");
+      return false;
+    }
+  }
+  try { $("token").value = localStorage.getItem("ott_token") || ""; }
+  catch (e) { notice("Trình duyệt đang chặn bộ nhớ lưu token. Hãy bật lưu dữ liệu trang web hoặc sao chép token để giữ lại.", "error"); }
+  $("copy-token").onclick = async () => {
+    if (!token()) return notice("Chưa có token để sao chép.", "error");
+    $("token").focus();
+    $("token").select();
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(token());
+        notice("Đã sao chép token. Bạn có thể dán bằng Ctrl+V.");
+        return;
+      }
+      if (document.execCommand("copy")) {
+        notice("Đã sao chép token. Bạn có thể dán bằng Ctrl+V.");
+        return;
+      }
+    } catch (e) {
+      // Tiếp tục bằng cách chọn token để người dùng sao chép thủ công.
+    }
+    notice("Token đã được chọn nhưng trình duyệt chặn sao chép tự động. Nhấn Ctrl+C (điện thoại: nhấn giữ token rồi chọn Sao chép).", "error");
+  };
+  $("save-token").onclick = () => { if (!token()) return notice("Vui lòng nhập token.", "error"); if (saveToken(token())) notice("Đã lưu token trên trình duyệt này."); };
   $("clear-token").onclick = () => { localStorage.removeItem("ott_token"); $("token").value = ""; $("status").textContent = "Đã đăng xuất."; $("board").textContent = "Đăng nhập để xem bảng xếp hạng của bảng bạn."; notice("Đã xóa token khỏi trình duyệt."); };
-  $("register-form").onsubmit = async event => { event.preventDefault(); try { const data = await api("/register", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:$("name").value.trim()})}); saveToken(data.token); notice("Đăng ký thành công! Token đã được lưu trên trình duyệt."); await refreshAll(); } catch(e) { notice(e.message, "error"); } };
+  $("register-form").onsubmit = async event => { event.preventDefault(); try { const data = await api("/register", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:$("name").value.trim()})}); if (saveToken(data.token)) notice("Đăng ký thành công! Token đã được lưu trên trình duyệt."); else notice("Đăng ký thành công nhưng trình duyệt không lưu được token. Hãy sao chép token đang hiện trong ô.", "error"); await refreshAll(); } catch(e) { notice(e.message, "error"); } };
   $("submit-form").onsubmit = async event => { event.preventDefault(); if (!token()) return notice("Hãy đăng nhập hoặc đăng ký trước khi nộp bot.", "error"); const file = $("botfile").files[0]; if (!file) return; const form = new FormData(); form.append("file",file); try { await api("/submit", {method:"POST",headers:headers(),body:form}); notice("Nộp bot thành công."); await refreshAll(); } catch(e) { notice(e.message, "error"); } };
   async function refreshStatus() { if (!token()) return notice("Hãy nhập token hoặc đăng ký trước.", "error"); try { const d = await api("/me",{headers:headers()}); const rows = [["Người chơi",d.name],["Trạng thái",d.status],["Giai đoạn",d.phase],["Vòng",d.round ?? "—"],["Ngày mở",d.open_day ?? "—"],["Bảng",d.group ?? "Chưa chia bảng"],["Điểm đầu vào",d.entry ?? "—"],["Hạng trung bình",d.avg_rank ?? "—"]]; $("status").className="status"; $("status").innerHTML=rows.map(([k,v])=>`<div class="stat"><small>${k}</small><strong>${v}</strong></div>`).join(""); } catch(e) { notice(e.message,"error"); } }
   async function refreshBoard() { if (!token()) return notice("Hãy nhập token hoặc đăng ký trước.","error"); try { const rows=await api("/leaderboard",{headers:headers()}); if (!rows.length) { $("board").className="empty"; $("board").textContent="Chưa có bảng xếp hạng cho tài khoản này hoặc ngày thi chưa được chấm."; return; } $("board").className="table-wrap"; $("board").innerHTML=`<table><thead><tr><th>Hạng</th><th>Người chơi</th><th>Điểm</th><th>Điểm ván</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.rank}</td><td>${r.name}</td><td>${r.pts}</td><td>${r.gs}</td></tr>`).join("")}</tbody></table>`; } catch(e) { notice(e.message,"error"); } }

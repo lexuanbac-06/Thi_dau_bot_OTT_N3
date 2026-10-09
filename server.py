@@ -11,6 +11,7 @@ import tournament as T
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 70 * 1024
+app.config["TEMPLATES_AUTO_RELOAD"] = True
 T.init()
 
 
