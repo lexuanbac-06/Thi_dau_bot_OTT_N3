@@ -9,7 +9,7 @@ CLI (BTC dùng):
   python tournament.py add-bot NAME FILE   # BTC nhập bài hộ (dùng cho vòng offline)
   python tournament.py demo N              # tạo N thí sinh giả để thử cả quy trình
 """
-import os, re, sys, time, random, shutil, secrets, sqlite3, argparse
+import os, re, sys, time, random, shutil, secrets, sqlite3, argparse, json
 from multiprocessing import Pool
 import engine
 
@@ -20,7 +20,7 @@ CFG = dict(
     entry_weights=[1, 2, 3],
     workers=min(os.cpu_count() or 4, 60),   # Windows tối đa 61
     rounds=[                              # groups: số bảng; top: top mỗi bảng đi tiếp; wildcard: vé vớt toàn vòng
-        dict(groups=40, top=10, wildcard=40),
+        dict(groups=1, top=10, wildcard=40),
         dict(groups=16, top=8, wildcard=16),
         dict(groups=8, top=6, wildcard=8),
         dict(groups=4, top=4, wildcard=4),
@@ -39,6 +39,10 @@ create table if not exists meta(k text primary key, v text);
 create table if not exists member(rnd int, name text, grp int, seed int, primary key(rnd,name));
 create table if not exists daily(rnd int, day int, grp int, name text, pts int, gs int, rank int, n int, primary key(rnd,day,name));
 create table if not exists matches(rnd int, day int, rd int, a text, b text, s int);
+create table if not exists match_replays(
+    rnd int, day int, rd int, a text, b text, games text,
+    primary key(rnd,day,rd,a,b)
+);
 """
 
 
@@ -101,7 +105,13 @@ def submit(name, src):
         raise ValueError("Ban tổ chức đang tạm đóng nhận bài")
     u = q("select status from users where name=?", (name,))[0]
     if ph == "round" and u["status"] != "active":
-        raise ValueError("Bạn đã bị loại")
+        competed = q("select 1 from member where name=? limit 1", (name,))
+        if competed:
+            raise ValueError("Bạn đã bị loại khỏi cuộc thi ở vòng trước.")
+        raise ValueError(
+            "Bạn chưa đủ điều kiện qua vòng đầu vào (chưa nộp bot hoặc không đạt điểm yêu cầu), "
+            "nên không thể tiếp tục cuộc thi."
+        )
     if len(src) > 65536:
         raise ValueError("File quá lớn (>64KB)")
     compile(src, "bot", "exec")                      # kiểm tra cú pháp, KHÔNG chạy
@@ -212,6 +222,7 @@ def grade_day():
         return p if os.path.exists(p) else None
 
     log = []
+    replay_log = []
     with Pool(CFG["workers"]) as pool:
         for rd in range(MATCHES):
             todo = []
@@ -221,10 +232,11 @@ def grade_day():
                     st["byes"].add(bye)
                 todo += [(g, a, b) for a, b in pairs]
             real = [i for i, (g, a, b) in enumerate(todo) if spec(a) and spec(b)]
-            out = dict(zip(real, pool.map(engine.play_match, [(spec(todo[i][1]), spec(todo[i][2])) for i in real], chunksize=2)))
+            out = dict(zip(real, pool.map(engine.play_match_recorded, [(spec(todo[i][1]), spec(todo[i][2])) for i in real], chunksize=2)))
             for i, (g, a, b) in enumerate(todo):
                 if i in out:
-                    s = out[i]
+                    s, games = out[i]
+                    replay_log.append((rnd, day, rd + 1, a, b, json.dumps(games)))
                 else:                                      # ai không nộp bài thì thua (không chạy trận)
                     s = 0 if not spec(a) and not spec(b) else (-2 if not spec(a) else 2)
                 m = (s > 0) - (s < 0)
@@ -239,6 +251,7 @@ def grade_day():
         rows += [(rnd, day, g, n, st["pts"][n], st["gs"][n], i + 1, len(rk)) for i, n in enumerate(rk)]
     qm("insert or replace into daily values(?,?,?,?,?,?,?,?)", rows)
     qm("insert into matches values(?,?,?,?,?,?)", log)
+    qm("insert or replace into match_replays values(?,?,?,?,?,?)", replay_log)
     put("pending", 0)
     print(f"Đã chấm vòng {rnd} ngày {day}")
     if day == DAYS:
@@ -293,6 +306,44 @@ def leaderboard(name, day=None):
         day = d or 0
     return [dict(r) for r in q("select rank,name,pts,gs from daily where rnd=? and day=? and grp=? order by rank",
                                (rnd, day, m[0]["grp"]))]
+
+
+def replays(name, rnd=None, day=None):
+    available = [
+        dict(r)
+        for r in q(
+            """select distinct d.rnd as round,d.day
+               from daily d
+               join member ma on ma.rnd=d.rnd and ma.name=d.name
+               where ma.name=? order by d.rnd,d.day""",
+            (name,),
+        )
+    ]
+    if not available:
+        return {"available": [], "round": None, "day": None, "matches": []}
+    if rnd is None or day is None:
+        rnd, day = available[-1]["round"], available[-1]["day"]
+    own_group = q("select grp from member where rnd=? and name=?", (rnd, name))
+    if not own_group or not any(r["round"] == rnd and r["day"] == day for r in available):
+        raise ValueError("Không tìm thấy ngày thi đã chấm trong bảng của bạn.")
+    group = own_group[0]["grp"]
+    matches = [
+        dict(r)
+        for r in q(
+            """select m.rd,m.a,m.b,m.s,r.games
+               from matches m
+               join member ma on ma.rnd=m.rnd and ma.name=m.a
+               join member mb on mb.rnd=m.rnd and mb.name=m.b and mb.grp=ma.grp
+               left join match_replays r
+                 on r.rnd=m.rnd and r.day=m.day and r.rd=m.rd and r.a=m.a and r.b=m.b
+               where m.rnd=? and m.day=? and ma.grp=?
+               order by m.rd,m.a,m.b""",
+            (rnd, day, group),
+        )
+    ]
+    for match in matches:
+        match["games"] = json.loads(match["games"]) if match["games"] else []
+    return {"available": available, "round": rnd, "day": day, "matches": matches}
 
 
 def admin_overview():

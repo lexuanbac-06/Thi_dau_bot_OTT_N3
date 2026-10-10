@@ -65,7 +65,7 @@ def encode(b, me, ply):
             "pieces": [[x, y, o, t] for (x, y), (o, t) in b.items()]}
 
 
-def play(bots, max_plies=MAX_PLIES):
+def play(bots, max_plies=MAX_PLIES, moves=None):
     """bots[0] đi trước. Trả +1 nếu bots[0] thắng, -1 nếu thua, 0 hòa."""
     b = initial()
     for ply in range(max_plies):
@@ -78,6 +78,8 @@ def play(bots, max_plies=MAX_PLIES):
         if m not in lm:
             return lose
         b = apply(b, m)
+        if moves is not None:
+            moves.append((p, m))
         if check_win(b, p, m):
             return -lose
     return 0
@@ -200,19 +202,36 @@ def make_bot(spec):
     return FuncBot(BTC[int(spec[4:])]) if spec.startswith("btc:") else ProcBot(spec)
 
 
-def play_match(args):
+def _play_match(args, record):
     """args=(specA, specB), spec là đường dẫn file bot hoặc 'btc:k'. BO2, mỗi bên đi trước 1 ván.
-    Trả s = (điểm ván của A) tổng 2 ván, trong [-2,2]."""
+    Trả tổng điểm của A; tùy chọn kèm dữ liệu nước đi từng ván."""
     a, b = args
     s = 0
+    games = []
     for first in (0, 1):
         ba, bb = make_bot(a), make_bot(b)
+        moves = [] if record else None
         try:
-            r = play([ba, bb]) if first == 0 else -play([bb, ba])
+            raw = play([ba, bb] if first == 0 else [bb, ba], moves=moves)
+            r = raw if first == 0 else -raw
         finally:
             ba.close(); bb.close()
         s += r
-    return s
+        if record:
+            games.append({
+                "players": ["a", "b"] if first == 0 else ["b", "a"],
+                "result": r,
+                "moves": moves,
+            })
+    return (s, games) if record else s
+
+
+def play_match_recorded(args):
+    return _play_match(args, True)
+
+
+def play_match(args):
+    return _play_match(args, False)
 
 
 if __name__ == "__main__" and len(sys.argv) == 3 and sys.argv[1] == "test":

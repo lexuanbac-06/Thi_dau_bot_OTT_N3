@@ -93,6 +93,66 @@ class AdminDashboardTests(unittest.TestCase):
         self.assertTrue(entrant["has_bot"])
         self.assertNotIn("token", entrant)
 
+    def test_entry_elimination_explains_why_submission_is_rejected(self):
+        name = "entrant"
+        server.T.register(name)
+        server.T.put("phase", "round")
+        server.T.put("round", 1)
+        server.T.q("update users set status='out' where name=?", (name,))
+
+        with self.assertRaisesRegex(ValueError, "đủ điều kiện qua vòng đầu vào"):
+            server.T.submit(name, b"print(1)")
+
+    def test_later_elimination_is_distinguished_from_entry_elimination(self):
+        name = "entrant"
+        server.T.register(name)
+        server.T.put("phase", "round")
+        server.T.put("round", 2)
+        server.T.q(
+            "insert into member(rnd,name,grp,seed) values(1,?,0,0)",
+            (name,),
+        )
+        server.T.q("update users set status='out' where name=?", (name,))
+
+        with self.assertRaisesRegex(ValueError, "bị loại khỏi cuộc thi ở vòng trước"):
+            server.T.submit(name, b"print(1)")
+
+    def test_replays_only_show_matches_from_the_entrant_group(self):
+        server.T.register("entrant")
+        server.T.register("opponent")
+        server.T.register("other")
+        server.T.qm(
+            "insert into member(rnd,name,grp,seed) values(1,?,0,0)",
+            [("entrant",), ("opponent",)],
+        )
+        server.T.qm(
+            "insert into member(rnd,name,grp,seed) values(1,?,1,0)",
+            [("other",)],
+        )
+        server.T.q(
+            "insert into matches(rnd,day,rd,a,b,s) values(1,1,1,'entrant','opponent',2)"
+        )
+        server.T.qm(
+            "insert into daily values(1,1,0,?,0,0,?,2)",
+            [("entrant", 1), ("opponent", 2)],
+        )
+        server.T.q(
+            "insert into match_replays(rnd,day,rd,a,b,games) values(1,1,1,'entrant','opponent',?)",
+            ('[{"players":["a","b"],"result":1,"moves":[[0,[0,0,1,1]]]}]',),
+        )
+        server.T.q(
+            "insert into matches(rnd,day,rd,a,b,s) values(1,1,1,'other','other2',0)"
+        )
+        server.T.q(
+            "insert into member(rnd,name,grp,seed) values(1,'other2',1,1)"
+        )
+
+        result = server.T.replays("entrant")
+
+        self.assertEqual(result["available"], [{"round": 1, "day": 1}])
+        self.assertEqual(len(result["matches"]), 1)
+        self.assertEqual(result["matches"][0]["games"][0]["moves"][0][0], 0)
+
     def test_entry_action_runs_and_reports_completion(self):
         self.login()
 

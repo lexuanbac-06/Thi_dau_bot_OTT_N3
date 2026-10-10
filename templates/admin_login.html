@@ -22,7 +22,7 @@
   <main>
     <h1>Ban tổ chức</h1>
     {% if not configured %}
-      <p class="error">Chưa cấu hình mật khẩu quản trị. Hãy thêm biến môi trường <code>ADMIN_PASSWORD</code> trong Render rồi deploy lại.</p>
+      <p class="error">Chưa cấu hình mật khẩu quản trị. Khi chạy local, hãy đặt biến <code>ADMIN_PASSWORD</code> trong PowerShell rồi khởi động lại server.</p>
     {% else %}
       <p>Đăng nhập để quản lý cuộc thi. Dùng mật khẩu quản trị do chủ dự án cấu hình.</p>
       {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}

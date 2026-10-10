@@ -37,6 +37,11 @@
     th,td { text-align:left; padding:11px 9px; border-bottom:1px solid #edf0f5; }
     th { color:#647087; font-size:.86rem; }
     .empty { padding:15px; color:#69758a; background:#f6f7fb; border-radius:9px; }
+    .replay-board { width:min(100%,520px); margin:16px auto; }
+    .replay-board svg { display:block; width:100%; height:auto; }
+    .replay-controls { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .replay-controls button { margin-top:0; }
+    .replay-controls input[type="range"] { flex:1; min-width:150px; }
     @media(max-width:700px) { .grid { grid-template-columns:1fr; } .wide { grid-column:auto; } header { align-items:flex-start; flex-direction:column; } }
   </style>
 </head>
@@ -66,10 +71,32 @@
       <div class="row" style="justify-content:space-between"><h2>Bảng xếp hạng</h2><button class="secondary" id="refresh-board" type="button">Tải bảng</button></div>
       <div id="board" class="empty">Đăng nhập để xem bảng xếp hạng của bảng bạn.</div>
     </section>
+    <section class="card wide">
+      <h2>Xem lại trận đấu</h2>
+      <p class="hint">Chọn một ngày đã chấm để xem các trận trong bảng của bạn.</p>
+      <div class="row">
+        <label for="replay-day">Ngày thi</label><select id="replay-day"></select>
+        <label for="replay-match">Trận</label><select id="replay-match"></select>
+        <label for="replay-game">Ván</label><select id="replay-game"></select>
+      </div>
+      <div id="replay-message" class="empty">Đăng nhập để tải các trận đã chấm.</div>
+      <div id="replay-view" class="hidden">
+        <div id="replay-board" class="replay-board"></div>
+        <div id="replay-caption" class="hint"></div>
+        <div class="replay-controls">
+          <button class="secondary" id="replay-prev" type="button">Lùi</button>
+          <button id="replay-play" type="button">Phát</button>
+          <button class="secondary" id="replay-next" type="button">Tiến</button>
+          <input id="replay-step" type="range" min="0" max="0" value="0" aria-label="Nước đi">
+          <span id="replay-step-label">0 / 0</span>
+        </div>
+      </div>
+    </section>
     <section class="card wide"><h2>Viết bot như thế nào?</h2><p>Mỗi lượt bot nhận trạng thái bàn cờ dạng JSON và in nước đi <code>x y nx ny</code>. <a href="/sample_bot.py" target="_blank" rel="noopener">Xem mã nguồn bot mẫu</a> để bắt đầu.</p></section>
   </main>
 <script>
   const $ = id => document.getElementById(id);
+  const escapeHtml = value => String(value ?? "—").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
   const notice = (text, kind = "ok") => { const el = $("notice"); el.textContent = text; el.className = kind; el.style.display = "block"; window.scrollTo({top:0,behavior:"smooth"}); };
   const token = () => $("token").value.trim();
   const headers = () => ({"X-Token": token()});
@@ -117,8 +144,87 @@
   $("submit-form").onsubmit = async event => { event.preventDefault(); if (!token()) return notice("Hãy đăng nhập hoặc đăng ký trước khi nộp bot.", "error"); const file = $("botfile").files[0]; if (!file) return; const form = new FormData(); form.append("file",file); try { await api("/submit", {method:"POST",headers:headers(),body:form}); notice("Nộp bot thành công."); await refreshAll(); } catch(e) { notice(e.message, "error"); } };
   async function refreshStatus() { if (!token()) return notice("Hãy nhập token hoặc đăng ký trước.", "error"); try { const d = await api("/me",{headers:headers()}); const rows = [["Người chơi",d.name],["Trạng thái",d.status],["Giai đoạn",d.phase],["Vòng",d.round ?? "—"],["Ngày mở",d.open_day ?? "—"],["Bảng",d.group ?? "Chưa chia bảng"],["Điểm đầu vào",d.entry ?? "—"],["Hạng trung bình",d.avg_rank ?? "—"]]; $("status").className="status"; $("status").innerHTML=rows.map(([k,v])=>`<div class="stat"><small>${k}</small><strong>${v}</strong></div>`).join(""); } catch(e) { notice(e.message,"error"); } }
   async function refreshBoard() { if (!token()) return notice("Hãy nhập token hoặc đăng ký trước.","error"); try { const rows=await api("/leaderboard",{headers:headers()}); if (!rows.length) { $("board").className="empty"; $("board").textContent="Chưa có bảng xếp hạng cho tài khoản này hoặc ngày thi chưa được chấm."; return; } $("board").className="table-wrap"; $("board").innerHTML=`<table><thead><tr><th>Hạng</th><th>Người chơi</th><th>Điểm</th><th>Điểm ván</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.rank}</td><td>${r.name}</td><td>${r.pts}</td><td>${r.gs}</td></tr>`).join("")}</tbody></table>`; } catch(e) { notice(e.message,"error"); } }
+  let replayMatches = [];
+  let replayTimer = null;
+  let replayStep = 0;
+  function selectedReplay() { return replayMatches[Number($("replay-match").value)]; }
+  function selectedGame() { const match=selectedReplay(); return match?.games?.[Number($("replay-game").value)]; }
+  function drawReplay() {
+    const match=selectedReplay(), game=selectedGame();
+    if (!match || !game) { $("replay-view").classList.add("hidden"); return; }
+    $("replay-view").classList.remove("hidden");
+    const names={a:match.a,b:match.b}, total=game.moves.length;
+    const board=new Map();
+    for (let x=0;x<9;x++) { board.set(`${x},0`,{player:0,type:x%3}); board.set(`${x},8`,{player:1,type:x%3}); }
+    for (const [,move] of game.moves.slice(0,replayStep)) {
+      const [x,y,nx,ny]=move, piece=board.get(`${x},${y}`);
+      board.delete(`${x},${y}`);
+      if (piece) board.set(`${nx},${ny}`,piece);
+    }
+    let svg='<svg viewBox="0 0 475 475" role="img" aria-label="Bàn cờ phát lại trận đấu">';
+    const icons=["✊","✋","✌"];
+    for(let y=0;y<9;y++) for(let x=0;x<9;x++) {
+      const px=25+x*50, py=25+y*50, goal=(x===8&&y===8)||(x===0&&y===0);
+      const border=goal?"#4f46e5":"#cbd5e1", borderWidth=goal?3:1;
+      svg+=`<rect x="${px}" y="${py}" width="50" height="50" fill="${(x+y)%2?"#eef1f7":"#fff"}" stroke="${border}" stroke-width="${borderWidth}"/>`;
+      const piece=board.get(`${x},${y}`);
+      if(piece) svg+=`<circle cx="${px+25}" cy="${py+25}" r="17" fill="${game.players[piece.player]==="a"?"#4f46e5":"#dc2626"}"/><text x="${px+25}" y="${py+31}" fill="white" font-size="18" text-anchor="middle">${icons[piece.type]}</text>`;
+    }
+    svg+="</svg>";
+    $("replay-board").innerHTML=svg;
+    const lastPlayer=replayStep ? game.players[game.moves[replayStep-1][0]] : null;
+    $("replay-caption").textContent=`Đang xem: ${names[game.players[0]]} (xanh) vs ${names[game.players[1]]} (đỏ) · ${lastPlayer ? `Nước vừa đi: ${names[lastPlayer]}` : "Bắt đầu ván"}`;
+    $("replay-step").max=String(total);
+    $("replay-step").value=String(replayStep);
+    $("replay-step-label").textContent=`${replayStep} / ${total}`;
+    $("replay-prev").disabled=replayStep===0;
+    $("replay-next").disabled=replayStep===total;
+  }
+  function stopReplay() { if(replayTimer){clearInterval(replayTimer);replayTimer=null;} $("replay-play").textContent="Phát"; }
+  async function refreshReplays(round,day) {
+    stopReplay();
+    if(!token()) { $("replay-message").textContent="Đăng nhập để tải các trận đã chấm."; return; }
+    try {
+      const params=new URLSearchParams();
+      if(round!==undefined&&day!==undefined){params.set("round",round);params.set("day",day);}
+      const data=await api(`/replays?${params}`,{headers:headers()});
+      const daySelect=$("replay-day");
+      daySelect.innerHTML=data.available.map(d=>`<option value="${d.round},${d.day}"${d.round===data.round&&d.day===data.day?" selected":""}>Vòng ${d.round} · Ngày ${d.day}</option>`).join("");
+      replayMatches=data.matches;
+      $("replay-match").innerHTML=replayMatches.map((m,i)=>`<option value="${i}">Trận ${m.rd}: ${escapeHtml(m.a)} vs ${escapeHtml(m.b)} (${m.s>0?"+":""}${m.s})</option>`).join("");
+      if(!replayMatches.length) {
+        $("replay-view").classList.add("hidden");
+        $("replay-message").textContent=data.available.length?"Ngày đã chấm nhưng bảng này không có trận đấu được ghi nhận. Có thể bảng chỉ có một thí sinh.":"Chưa có ngày thi nào được chấm trong bảng của bạn.";
+        return;
+      }
+      $("replay-message").classList.add("hidden");
+      $("replay-match").disabled=false;
+      renderSelectedMatch();
+    } catch(e) { $("replay-message").classList.remove("hidden"); $("replay-message").textContent=e.message; }
+  }
+  function renderSelectedMatch() {
+    const match=selectedReplay();
+    if(!match) return;
+    $("replay-game").innerHTML=match.games.map((g,i)=>`<option value="${i}">Ván ${i+1}: ${escapeHtml(g.players[0]==="a"?match.a:match.b)} đi trước</option>`).join("");
+    if(!match.games.length) {
+      $("replay-view").classList.add("hidden");
+      $("replay-message").classList.remove("hidden");
+      $("replay-message").textContent="Trận này chưa có dữ liệu phát lại. Trận chấm trước khi bật tính năng hoặc trận thiếu bài sẽ không phát lại được.";
+      return;
+    }
+    $("replay-message").classList.add("hidden");
+    replayStep=0; drawReplay();
+  }
+  $("replay-day").onchange=()=>{const [r,d]=$("replay-day").value.split(",");refreshReplays(Number(r),Number(d));};
+  $("replay-match").onchange=renderSelectedMatch;
+  $("replay-game").onchange=()=>{stopReplay();replayStep=0;drawReplay();};
+  $("replay-step").oninput=()=>{stopReplay();replayStep=Number($("replay-step").value);drawReplay();};
+  $("replay-prev").onclick=()=>{replayStep=Math.max(0,replayStep-1);drawReplay();};
+  $("replay-next").onclick=()=>{const game=selectedGame();if(game){replayStep=Math.min(game.moves.length,replayStep+1);drawReplay();}};
+  $("replay-play").onclick=()=>{if(replayTimer){stopReplay();return;}const game=selectedGame();if(!game)return;if(replayStep>=game.moves.length)replayStep=0;$("replay-play").textContent="Tạm dừng";replayTimer=setInterval(()=>{if(replayStep>=game.moves.length){stopReplay();return;}replayStep++;drawReplay();},650);};
   async function refreshAll() { await refreshStatus(); await refreshBoard(); }
   $("refresh").onclick=refreshStatus; $("refresh-board").onclick=refreshBoard;
+  refreshReplays();
 </script>
 </body>
 </html>

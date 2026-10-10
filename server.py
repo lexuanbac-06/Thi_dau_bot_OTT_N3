@@ -22,7 +22,7 @@ app.config["TEMPLATES_AUTO_RELOAD"] = True
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("ADMIN_PASSWORD")
 app.config["SESSION_COOKIE_HTTPONLY"] = True
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["SESSION_COOKIE_SECURE"] = bool(os.environ.get("RENDER"))
+app.config["SESSION_COOKIE_SECURE"] = os.environ.get("SESSION_COOKIE_SECURE", "").lower() in ("1", "true", "yes")
 T.init()
 
 _admin_executor = ThreadPoolExecutor(max_workers=1)
@@ -218,6 +218,13 @@ def me():
 def lb():
     day = request.args.get("day", type=int)
     return jsonify(T.leaderboard(auth(), day))
+
+
+@app.get("/replays")
+def match_replays():
+    rnd = request.args.get("round", type=int)
+    day = request.args.get("day", type=int)
+    return jsonify(T.replays(auth(), rnd, day))
 
 
 if __name__ == "__main__":
