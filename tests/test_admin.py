@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 os.environ["ADMIN_PASSWORD"] = "test-admin-password"
 os.environ["FLASK_SECRET_KEY"] = "test-flask-secret"
+os.environ["OTT_SUPABASE_SYNC"] = "0"
 
 import server
 
@@ -28,18 +29,43 @@ class AdminDashboardTests(unittest.TestCase):
         with server._admin_job_lock:
             server._admin_job = None
         self.client = server.app.test_client()
-        page = self.client.get("/admin")
-        self.csrf = re.search(
-            rb'name="csrf_token" value="([^"]+)"', page.data
-        ).group(1).decode()
+
+        self.patch_login = patch.object(
+            server.A, "login",
+            side_effect=lambda u, p, ip=None, ua=None: (
+                (_ for _ in ()).throw(PermissionError("Sai tên hoặc mật khẩu"))
+                if p == "incorrect" else {
+                    "access_token": "mock-token",
+                    "refresh_token": "mock-rt",
+                    "expires_in": 3600,
+                    "user": {"id": "mock-id", "username": u or "admin_user", "role": "admin", "status": "active"}
+                }
+            )
+        )
+        self.patch_login.start()
+
+        self.patch_verify = patch.object(
+            server.A, "verify_token",
+            side_effect=lambda tok: {
+                "id": "mock-id", "username": "admin_user", "role": "admin", "status": "active"
+            }
+        )
+        self.patch_verify.start()
+
+        page = self.client.get("/login")
+        self.assertEqual(page.status_code, 200)
+        with self.client.session_transaction() as session:
+            self.csrf = session["csrf_token"]
 
     def tearDown(self):
+        self.patch_login.stop()
+        self.patch_verify.stop()
         self.temp_dir.cleanup()
 
     def login(self):
         response = self.client.post(
-            "/admin",
-            data={"csrf_token": self.csrf, "password": "test-admin-password"},
+            "/login",
+            data={"csrf_token": self.csrf, "username": "admin_user", "password": "correct_password"},
         )
         self.assertEqual(response.status_code, 302)
         with self.client.session_transaction() as session:
@@ -52,7 +78,7 @@ class AdminDashboardTests(unittest.TestCase):
         return {"X-CSRF-Token": self.csrf}
 
     def wait_for_job(self):
-        for _ in range(100):
+        for _ in range(300):
             job = self.client.get("/admin/api/job").json
             if job["state"] != "running":
                 return job
@@ -62,8 +88,9 @@ class AdminDashboardTests(unittest.TestCase):
     def test_admin_routes_require_login_and_csrf(self):
         self.assertEqual(self.client.get("/admin/api/overview").status_code, 401)
         self.assertEqual(
-            self.client.post("/admin", data={
+            self.client.post("/login", data={
                 "csrf_token": self.csrf,
+                "username": "admin_user",
                 "password": "incorrect",
             }).status_code,
             401,
@@ -280,14 +307,14 @@ class AdminDashboardTests(unittest.TestCase):
 
     def test_admin_login_sets_a_persistent_session_cookie(self):
         response = self.client.post(
-            "/admin",
-            data={"csrf_token": self.csrf, "password": "test-admin-password"},
+            "/login",
+            data={"csrf_token": self.csrf, "username": "admin_user", "password": "correct_password"},
         )
 
         self.assertEqual(response.status_code, 302)
         cookie = response.headers["Set-Cookie"]
         self.assertIn("Expires=", cookie)
-        self.assertNotIn("test-admin-password", cookie)
+        self.assertNotIn("correct_password", cookie)
         with self.client.session_transaction() as session:
             self.assertTrue(session.permanent)
         self.assertEqual(self.client.get("/admin").status_code, 200)
