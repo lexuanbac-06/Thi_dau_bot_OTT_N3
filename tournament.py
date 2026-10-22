@@ -15,6 +15,8 @@ from multiprocessing import Pool
 import engine
 
 DB, BOT_DIR, SNAP = "ott.db", "bots", "snaps"
+RULE_DIR = os.path.join(os.path.dirname(__file__), "rules")
+RULE_FILES = tuple(f"rule{number}.json" for number in range(1, 6))
 LIVE_BOARD_SNAPSHOT = os.path.join(
     os.path.dirname(__file__), "static", "live-board.json"
 )
@@ -34,8 +36,8 @@ LIVE_SCORE_PERSIST_BATCH = 25
 
 
 def _play_indexed_match(args):
-    index, match_args = args
-    return index, engine.play_match_recorded(match_args)
+    index, match_args, rules = args
+    return index, engine.play_match_recorded(match_args, rules=rules)
 
 if os.environ.get("OTT_TEST"):      # chế độ thử: 1 bảng, 1 vòng, 3 ngày, 3 trận/ngày, không loại ai ở đầu vào
     DAYS, MIN_DAYS, MATCHES = 3, 0, 3
@@ -135,6 +137,114 @@ def put(k, v):
     q("insert or replace into meta values(?,?)", (k, str(v)))
 
 
+def _rule_selection_key(rnd):
+    return f"rule_selection:{rnd}"
+
+
+def _rule_config_key(rnd):
+    return f"rule_config:{rnd}"
+
+
+def _rule_snapshot_key(rnd):
+    return f"rule_snapshot:{rnd}"
+
+
+def load_round_rule_file(filename):
+    if filename not in RULE_FILES:
+        raise ValueError("File luật không hợp lệ.")
+    path = os.path.join(RULE_DIR, filename)
+    try:
+        return engine.load_rules(path)
+    except (OSError, ValueError) as exc:
+        raise ValueError(f"Không thể nạp {filename}: {exc}") from exc
+
+
+def round_rule_settings():
+    phase = get("phase", "entry")
+    active_round = int(get("round", 0) or 0)
+    rounds = []
+    for rnd in range(1, len(CFG["rounds"]) + 1):
+        selected = get(_rule_selection_key(rnd), "rule1.json")
+        snapshot = get(_rule_snapshot_key(rnd))
+        started = phase == "done" and rnd <= active_round or (
+            phase == "round" and rnd <= active_round
+        )
+        active = bool(snapshot) and started
+        rounds.append({
+            "round": rnd,
+            "selected_rule": selected,
+            "active_rule": selected if active else None,
+            "active": active,
+            "editable": phase == "entry" or (
+                phase == "round" and rnd > active_round
+            ),
+        })
+    return {
+        "available_rules": [
+            filename
+            for filename in RULE_FILES
+            if os.path.isfile(os.path.join(RULE_DIR, filename))
+        ],
+        "rounds": rounds,
+    }
+
+
+def set_round_rule(rnd, filename):
+    if type(rnd) is not int or not 1 <= rnd <= len(CFG["rounds"]):
+        raise ValueError("Vòng thi không hợp lệ.")
+    if filename not in RULE_FILES:
+        raise ValueError("File luật không hợp lệ.")
+    rules = load_round_rule_file(filename)
+
+    phase = get("phase", "entry")
+    active_round = int(get("round", 0) or 0)
+    if not (
+        phase == "entry"
+        or phase == "round" and rnd > active_round
+    ):
+        raise RuntimeError("Không thể đổi luật cho vòng đã bắt đầu.")
+    connection = sqlite3.connect(DB, timeout=30)
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        connection.execute(
+            "insert or replace into meta(k,v) values(?,?)",
+            (_rule_selection_key(rnd), filename),
+        )
+        connection.execute(
+            "insert or replace into meta(k,v) values(?,?)",
+            (_rule_config_key(rnd), json.dumps(rules, separators=(",", ":"))),
+        )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+    return round_rule_settings()
+
+
+def activate_round_rules(rnd):
+    filename = get(_rule_selection_key(rnd), "rule1.json")
+    selected_config = get(_rule_config_key(rnd))
+    rules = (
+        engine._normalize_rules(json.loads(selected_config))
+        if selected_config
+        else load_round_rule_file(filename)
+    )
+    put(_rule_snapshot_key(rnd), json.dumps(rules, separators=(",", ":")))
+    return rules
+
+
+def round_rules_for_play(rnd):
+    snapshot = get(_rule_snapshot_key(rnd))
+    if snapshot:
+        return engine._normalize_rules(json.loads(snapshot))
+    selected_config = get(_rule_config_key(rnd))
+    if selected_config:
+        return engine._normalize_rules(json.loads(selected_config))
+    return load_round_rule_file("rule1.json")
+
+
 # ---------------- ĐĂNG KÝ / NỘP BÀI ----------------
 def register(name):
     if not re.fullmatch(r"[A-Za-z0-9_]{3,20}", name):
@@ -219,6 +329,7 @@ def entry_close():
     alive.sort(key=lambda n: -sc[n])
     qm("update users set entry=?, status=? where name=?",
        [(sc.get(n), "active" if n in alive else "out", n) for n in names])
+    activate_round_rules(1)
     seat(1, alive)
     put("phase", "round"); put("round", 1); put("day", 1); put("pending", 0)
     print(f"Đầu vào: {len(names)} đăng ký, {len(sc)} có bài, {len(alive)} đi tiếp.")
@@ -297,6 +408,7 @@ def grade_day():
         p = f"{SNAP}/r{rnd}/d{day}/{n}.py"
         return p if os.path.exists(p) else None
 
+    rules = round_rules_for_play(rnd)
     with Pool(CFG["workers"]) as pool:
         for rd in range(MATCHES):
             todo = []
@@ -364,7 +476,7 @@ def grade_day():
                     record_result(i, s)
 
             indexed_args = (
-                (i, (spec(todo[i][1]), spec(todo[i][2])))
+                (i, (spec(todo[i][1]), spec(todo[i][2])), rules)
                 for i in real
             )
             for i, result in pool.imap_unordered(
@@ -422,6 +534,7 @@ def advance(rnd):
             q("delete from meta where k='champion'")
         put("phase", "done")
         return
+    activate_round_rules(rnd + 1)
     seat(rnd + 1, ordered)
     put("round", rnd + 1); put("day", 1)
 

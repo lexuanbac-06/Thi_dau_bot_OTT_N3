@@ -61,6 +61,7 @@ class AdminDashboardTests(unittest.TestCase):
 
     def test_admin_routes_require_login_and_csrf(self):
         self.assertEqual(self.client.get("/admin/api/overview").status_code, 401)
+        self.assertEqual(self.client.get("/admin/api/rules").status_code, 401)
         self.assertEqual(
             self.client.post("/admin", data={
                 "csrf_token": self.csrf,
@@ -75,6 +76,72 @@ class AdminDashboardTests(unittest.TestCase):
         self.assertEqual(
             self.client.post("/admin/api/submissions", json={"accepting": False}).status_code,
             403,
+        )
+
+    def test_admin_can_select_rules_only_for_rounds_that_have_not_started(self):
+        self.login()
+        available = self.client.get("/admin/api/rules")
+        self.assertEqual(available.status_code, 200)
+        self.assertIn("rule3.json", available.json["available_rules"])
+        self.assertEqual(available.json["rounds"][0]["selected_rule"], "rule1.json")
+
+        response = self.client.post(
+            "/admin/api/rules",
+            json={"round": 1, "rule": "rule2.json"},
+        )
+        self.assertEqual(response.status_code, 403)
+
+        response = self.client.post(
+            "/admin/api/rules",
+            json={"round": 1, "rule": "rule2.json"},
+            headers=self.post_headers(),
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json["rounds"][0]["selected_rule"], "rule2.json")
+        self.assertFalse(response.json["rounds"][0]["active"])
+
+        server.T.put("phase", "round")
+        server.T.put("round", 1)
+        active_rules = server.T.activate_round_rules(1)
+        response = self.client.post(
+            "/admin/api/rules",
+            json={"round": 1, "rule": "rule1.json"},
+            headers=self.post_headers(),
+        )
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(server.T.round_rules_for_play(1), active_rules)
+        self.assertTrue(server.T.round_rule_settings()["rounds"][0]["active"])
+
+    def test_admin_rule_selection_rejects_invalid_round_and_filename(self):
+        self.login()
+        for payload in (
+            {"round": "1", "rule": "rule1.json"},
+            {"round": 1, "rule": "..\\ott.db"},
+            {"round": 0, "rule": "rule1.json"},
+        ):
+            with self.subTest(payload=payload):
+                response = self.client.post(
+                    "/admin/api/rules",
+                    json=payload,
+                    headers=self.post_headers(),
+                )
+                self.assertEqual(response.status_code, 400)
+
+    def test_indexed_match_worker_passes_its_round_rule_snapshot(self):
+        rules = server.T.load_round_rule_file("rule3.json")
+        with patch.object(
+            server.T.engine,
+            "play_match_recorded",
+            return_value=(1, []),
+        ) as play_match:
+            result = server.T._play_indexed_match(
+                (7, ("bot_a.py", "bot_b.py"), rules)
+            )
+
+        self.assertEqual(result, (7, (1, [])))
+        play_match.assert_called_once_with(
+            ("bot_a.py", "bot_b.py"),
+            rules=rules,
         )
 
     def test_local_live_scores_are_upserted_and_published_publicly(self):

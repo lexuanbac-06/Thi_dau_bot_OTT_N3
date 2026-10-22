@@ -5,6 +5,10 @@ POST /register   json {"name": "abc"}                -> {"token": "..."}   (gi�
 POST /submit     header X-Token, form file=@bot.py    -> {"ok": true}
 GET  /me         header X-Token                       -> trạng thái, bảng, thứ hạng các ngày
 GET  /leaderboard header X-Token  [?day=3]            -> BXH bảng của mình (ngày mới nhất đã chấm)
+
+Admin rule API:
+GET  /admin/api/rules                              -> luật đã chọn và trạng thái từng vòng
+POST /admin/api/rules json {"round": 2, "rule": "rule3.json"}
 """
 import json
 import os
@@ -119,6 +123,39 @@ def admin_logout():
 @admin_required
 def admin_overview():
     return jsonify(T.admin_overview())
+
+
+@app.get("/admin/api/rules")
+@admin_required
+def admin_rules():
+    return jsonify(T.round_rule_settings())
+
+
+@app.post("/admin/api/rules")
+@admin_required
+def set_admin_round_rule():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify(ok=False, error="Nội dung gửi lên phải là JSON object."), 400
+    rnd, filename = payload.get("round"), payload.get("rule")
+    if type(rnd) is not int or not isinstance(filename, str):
+        return jsonify(
+            ok=False,
+            error="Cần gửi round dạng số nguyên và rule dạng tên file.",
+        ), 400
+    with _admin_job_lock:
+        if _admin_job and _admin_job["state"] == "running":
+            return jsonify(
+                ok=False,
+                error="Không thể đổi luật khi đang chạy thao tác quản trị.",
+            ), 409
+        try:
+            settings = T.set_round_rule(rnd, filename)
+        except RuntimeError as exc:
+            return jsonify(ok=False, error=str(exc)), 409
+        except ValueError as exc:
+            return jsonify(ok=False, error=str(exc)), 400
+    return jsonify(ok=True, **settings)
 
 
 @app.get("/champion")
