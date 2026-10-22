@@ -2,6 +2,40 @@ import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import { loadMatchReplay, type ReplayGame, type Replays } from './api';
 
+function RockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M19 10V7.5a2 2 0 0 0-2-2h-1V4.5a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v1h-1a2 2 0 0 0-2 2V10a3 3 0 0 0-3 3v2.5A4.5 4.5 0 0 0 9.5 20h4a5 5 0 0 0 5-5V10zM10 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5V10H10V5.5zm-2 2a.5.5 0 0 1 .5-.5h1V10H8V7.5zm5-2a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5V10h-2V5.5zm3 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5V10H16V8z" />
+    </svg>
+  );
+}
+
+function PaperIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2a1.5 1.5 0 0 1 1.5 1.5V9.5h.5A1.5 1.5 0 0 1 15.5 8 1.5 1.5 0 0 1 17 9.5v.5h.5A1.5 1.5 0 0 1 19 11.5v3.5a6 6 0 0 1-6 6H10a6 6 0 0 1-6-6v-3.8a1.5 1.5 0 0 1 2.5-1.1L8 12V4.5A1.5 1.5 0 0 1 9.5 3 1.5 1.5 0 0 1 11 4.5V2z" />
+    </svg>
+  );
+}
+
+function ScissorsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="6" cy="6" r="3" fill="currentColor" fillOpacity="0.25" />
+      <circle cx="6" cy="18" r="3" fill="currentColor" fillOpacity="0.25" />
+      <line x1="20" y1="4" x2="8.12" y2="15.88" />
+      <line x1="14.47" y1="14.48" x2="20" y2="20" />
+      <line x1="8.12" y1="8.12" x2="12" y2="12" />
+    </svg>
+  );
+}
+
+function PieceIcon({ type }: { type: number }) {
+  if (type === 0) return <RockIcon />;
+  if (type === 1) return <PaperIcon />;
+  return <ScissorsIcon />;
+}
+
 export default function Replay({ data, onDay }: { data: Replays; onDay: (round: number, day: number) => void }) {
   const [matchIndex, setMatchIndex] = useState(0);
   const [gameIndex, setGameIndex] = useState(0);
@@ -81,7 +115,10 @@ export default function Replay({ data, onDay }: { data: Replays; onDay: (round: 
         : loadError ? <div className="empty-state"><Play/><h3>Chưa tải được replay</h3><p>{loadError}</p></div>
           : !game ? <div className="empty-state"><Play/><h3>Trận đấu sẽ xuất hiện tại đây</h3><p>{match ? 'Trận này không có dữ liệu phát lại.' : 'Sau khi ban tổ chức chấm, bạn có thể xem lại các trận trong bảng của mình.'}</p></div>
             : <>
-              <div className="replay-names"><span>🔵 {botName(game.players[0])}</span><span>🔴 {botName(game.players[1])}</span></div>
+              <div className="replay-names">
+                <span className="replay-player player-0">🔵 {botName(game.players[0])}</span>
+                <span className="replay-player player-1">🔴 {botName(game.players[1])}</span>
+              </div>
               <div className="replay-game-analysis">
                 <span>{game.result !== undefined ? (game.result > 0 ? `Thắng: ${match?.a}` : game.result < 0 ? `Thắng: ${match?.b}` : 'Ván hòa') : 'Chưa có kết quả ván'}</span>
                 <span>{total} nước đi{game.fault ? ' · có nước đi lỗi' : ' · không ghi nhận nước đi lỗi'}</span>
@@ -89,9 +126,25 @@ export default function Replay({ data, onDay }: { data: Replays; onDay: (round: 
               <div className="replay-board" role="grid" aria-label="Bàn cờ phát lại 9 nhân 9">
                 {Array.from({ length: 81 }, (_, index) => {
                   const x = index % 9, y = 8 - Math.floor(index / 9), piece = pieces.get(`${x},${y}`);
-                  return <div role="gridcell" key={index} className={`square ${(x + y) % 2 ? 'dark' : ''} ${((x === 0 && y === 0) || (x === 8 && y === 8)) ? 'goal' : ''} ${last && x === last[2] && y === last[3] ? 'last' : ''}`} aria-label={`${'abcdefghi'[x]}${y + 1}${piece ? `, ${['Búa', 'Bao', 'Kéo'][piece.type]}, bên ${piece.owner}` : ''}`}>
-                    {piece && <span className={`board-piece owner-${piece.owner}`}>{['✊', '🖐', '✌️'][piece.type]}</span>}
-                  </div>;
+                  const isGoal = (x === 0 && y === 0) || (x === 8 && y === 8);
+                  const isLast = Boolean(last && x === last[2] && y === last[3]);
+                  return (
+                    <div
+                      role="gridcell"
+                      key={index}
+                      className={`square ${(x + y) % 2 ? 'dark' : ''} ${isGoal ? 'goal' : ''} ${isLast ? 'last' : ''}`}
+                      aria-label={`${'abcdefghi'[x]}${y + 1}${piece ? `, ${['Búa', 'Bao', 'Kéo'][piece.type]}, bên ${piece.owner}` : ''}`}
+                    >
+                      {x === 0 && <span className="coord-rank" aria-hidden="true">{y + 1}</span>}
+                      {y === 0 && <span className="coord-file" aria-hidden="true">{'abcdefghi'[x]}</span>}
+                      {piece && (
+                        <span className={`board-piece owner-${piece.owner}`}>
+                          <PieceIcon type={piece.type} />
+                          <span className="piece-tag">{['BÚA', 'BAO', 'KÉO'][piece.type]}</span>
+                        </span>
+                      )}
+                    </div>
+                  );
                 })}
               </div>
               <div className="replay-controls">

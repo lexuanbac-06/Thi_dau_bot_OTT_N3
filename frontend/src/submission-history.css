@@ -1,38 +1,38 @@
 .submission-history{margin-top:22px}
 .submission-history-list{display:flex;flex-direction:column;gap:10px}
-.submission-history-item{overflow:hidden;border:1px solid var(--line);border-radius:10px;background:#15151e}
+.submission-history-item{overflow:hidden;border:1px solid var(--line);border-radius:2px;background:var(--c-15151e)}
 .submission-history-item>summary{display:flex;align-items:center;gap:14px;padding:15px;cursor:pointer;list-style:none}
 .submission-history-item>summary::-webkit-details-marker{display:none}
 .history-summary-main{display:flex;flex:1;min-width:0;flex-direction:column;gap:5px}
-.history-summary-main strong{color:#eeeaf3;font-size:12px}
-.history-summary-main small{color:var(--muted);font-size:10px}
-.history-status{display:inline-flex;align-items:center;gap:6px;color:#d5ae64;font-size:10px;white-space:nowrap}
-.history-status i{width:7px;height:7px;border-radius:50%;background:currentColor}
-.history-status.succeeded{color:#6ed6a1}
-.history-status.failed,.history-status.timed_out,.history-status.dispatch_failed{color:#f17e8b}
-.history-score{min-width:66px;text-align:right;color:#c9b6ff;font-weight:700}
-.submission-history-details{padding:2px 16px 16px;border-top:1px solid #ffffff0d;color:#c6c0ce;font-size:11px}
+.history-summary-main strong{color:var(--c-eeeaf3);font-size:12px}
+.history-summary-main small{color:var(--muted);font-size:11px}
+.history-status{display:inline-flex;align-items:center;gap:6px;color:var(--c-d5ae64);font-size:11px;white-space:nowrap}
+.history-status i{width:7px;height:7px;border-radius:0;background:currentColor}
+.history-status.succeeded{color:var(--c-6ed6a1)}
+.history-status.failed,.history-status.timed_out,.history-status.dispatch_failed{color:var(--c-f17e8b)}
+.history-score{min-width:66px;text-align:right;color:var(--c-c9b6ff);font-weight:700}
+.submission-history-details{padding:2px 16px 16px;border-top:1px solid var(--c-ffffff0d);color:var(--c-c6c0ce);font-size:11px}
 .submission-history-details>p{margin:12px 0;font-size:11px}
 .entry-analysis{padding-top:14px}
 .analysis-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
-.analysis-metrics>div{display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid var(--line);border-radius:8px}
-.analysis-metrics small{color:var(--muted);font-size:9px}
-.analysis-metrics strong{color:#e8ddff;font-size:12px}
+.analysis-metrics>div{display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid var(--line);border-radius:2px}
+.analysis-metrics small{color:var(--muted);font-size:11px}
+.analysis-metrics strong{color:var(--c-e8ddff);font-size:12px}
 .entry-analysis>p{margin:8px 0}
 .analysis-game-list{display:flex;flex-direction:column;gap:7px;margin:14px 0}
-.analysis-game-list span{color:#aaa1b7}
+.analysis-game-list span{color:var(--c-aaa1b7)}
 .history-match-list{display:flex;flex-direction:column;gap:12px}
-.history-replay{padding:12px 0;border-top:1px solid #ffffff10}
+.history-replay{padding:12px 0;border-top:1px solid var(--c-ffffff10)}
 .history-replay>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .history-replay>div:first-child strong{font-size:11px}
-.history-replay button{padding:8px 11px;font-size:10px}
+.history-replay button{padding:8px 11px;font-size:11px}
 .history-replay .panel{margin-top:12px}
-.replay-game-analysis{display:flex;justify-content:space-between;gap:12px;margin:10px 0;color:var(--muted);font-size:10px}
+.replay-game-analysis{display:flex;justify-content:space-between;gap:12px;margin:10px 0;color:var(--muted);font-size:11px}
 @media(max-width:620px){
   .submission-history-item>summary{gap:8px;padding:12px 9px}
-  .history-summary-main strong{font-size:10px}
-  .history-summary-main small,.history-status{font-size:8px}
-  .history-score{min-width:48px;font-size:10px}
+  .history-summary-main strong{font-size:11px}
+  .history-summary-main small,.history-status{font-size:11px}
+  .history-score{min-width:48px;font-size:11px}
   .analysis-metrics{grid-template-columns:1fr}
   .history-replay>div:first-child{align-items:flex-start;flex-direction:column}
 }

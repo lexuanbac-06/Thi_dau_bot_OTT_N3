@@ -1,12 +1,22 @@
 import { useState } from 'react';
 import { ArrowRight, Check, Code2, Eye, EyeOff, LockKeyhole, Mail, ShieldAlert, ShieldCheck, Sparkles, Swords, Trophy, UserRound } from 'lucide-react';
 import { supabase, type User } from './api';
+import { ThemeToggle } from './theme';
+
+export function LogoPair() {
+  return (
+    <span className="logo-pair">
+      <img src="/uet-logo.webp" alt="Logo Trường Đại học Công nghệ (UET)" />
+      <img src="/fit-logo.png" alt="Logo Khoa Công nghệ thông tin (FIT)" />
+    </span>
+  );
+}
 
 export function Brand() {
   return (
     <a className="brand" href="/">
-      <span className="brand-icon"><Swords size={23}/></span>
-      <span>OTT<span className="brand-light">ARENA</span><small>CODE. COMPETE. CONQUER.</small></span>
+      <LogoPair />
+      <span className="brand-text">UET<span className="brand-light">_RPS</span><small>CODE. COMPETE. CONQUER.</small></span>
     </a>
   );
 }
@@ -153,10 +163,10 @@ export default function Auth({ onLogin }: { onLogin: (user: User) => void }) {
       <section className="auth-story">
         <Brand />
         <div className="story-body">
-          <span className="pill"><span className="live-dot" /> ĐẤU TRƯỜNG BOT OẲN TÙ TÌ</span>
+          <span className="pill"><span className="live-dot" /> ĐẤU TRƯỜNG BOT RPS</span>
           <h1>Mỗi nước đi.<br />Một <span>chiến thuật.</span></h1>
           <p>Biến ý tưởng thành thuật toán. Đưa bot của bạn lên bàn cờ và chinh phục đấu trường.</p>
-          <div className="game-art" aria-label="Minh họa bàn cờ bot oẳn tù tì">
+          <div className="game-art" aria-label="Minh họa bàn cờ bot RPS">
             <div className="art-top"><span><span className="live-dot" /> BOT ARENA</span><span>9 × 9 BOARD</span></div>
             <div className="mini-board">
               {Array.from({ length: 49 }, (_, i) => (
@@ -181,12 +191,13 @@ export default function Auth({ onLogin }: { onLogin: (user: User) => void }) {
             <span><Trophy /> Leo bảng xếp hạng</span>
           </div>
         </div>
-        <footer>OTT ARENA <span>Không ngừng học hỏi. Không ngừng tiến bộ.</span></footer>
+        <footer><span className="footer-logos"><img src="/uet-logo.webp" alt="UET" /><img src="/fit-logo.png" alt="FIT" /><b>UET_RPS</b></span><span>Không ngừng học hỏi. Không ngừng tiến bộ.</span></footer>
       </section>
 
       <section className="auth-panel">
         <div className="auth-top">
-          <span className="badge"><span className="live-dot" /> SUPABASE AUTH</span>
+          <span className="badge"><span className="live-dot" /> XÁC THỰC TÀI KHOẢN</span>
+          <ThemeToggle showLabel />
         </div>
 
         <div className="auth-card">
@@ -222,7 +233,7 @@ export default function Auth({ onLogin }: { onLogin: (user: User) => void }) {
 
           {verifyNotice ? (
             <div className="verify-card" style={{ padding: '20px 0', textAlign: 'center' }}>
-              <div style={{ display: 'inline-flex', padding: '14px', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', marginBottom: '12px' }}>
+              <div style={{ display: 'inline-flex', padding: '14px', borderRadius: 0, background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', marginBottom: '12px' }}>
                 <Mail size={36} />
               </div>
               <h3 style={{ fontSize: '1.2rem', margin: '8px 0' }}>Kiểm tra hòm thư của bạn!</h3>

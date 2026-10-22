@@ -5,6 +5,7 @@ import {
   Swords, Trophy, Upload, Users, UserX, RotateCcw,
 } from 'lucide-react';
 import { getScoringAdminMetrics, getScoringBenchmarks, postScoringAdmin, probeScoringServer, supabase, uploadScoringBenchmark, type ScoringBenchmark } from './api';
+import { BarList, ColumnChart } from './Charts';
 
 type Section = 'tournament' | 'eliminated' | 'server' | 'observation' | 'monitor';
 type MonitorSnapshot = {
@@ -35,7 +36,7 @@ const formatTime = (value?: string | null) => value ? new Date(value).toLocaleSt
 function describeSupabaseError(error: unknown, operation: string): Error {
   const candidate = error as { message?: string; code?: string; details?: string; hint?: string } | null;
   const parts = [candidate?.code, candidate?.message, candidate?.details, candidate?.hint].filter(Boolean);
-  const detail = parts.join(' — ') || 'Không có chi tiết từ Supabase.';
+  const detail = parts.join(' — ') || 'Không có chi tiết từ cơ sở dữ liệu.';
   return new Error(`${operation}: ${detail}`);
 }
 
@@ -182,7 +183,7 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
       .catch((err: any) => {
         if (!cancelled) {
           setBenchmarks([]);
-          setError(err?.message || 'Không tải được bot mẫu; hãy kiểm tra URL tunnel và phiên bản scoring module.');
+          setError(err?.message || 'Không tải được bot mẫu; hãy kiểm tra địa chỉ máy chấm và phiên bản máy chấm.');
         }
       });
     return () => { cancelled = true; };
@@ -311,7 +312,7 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
       try { cleanup = await drainReplayCleanupQueue(); } catch { /* Database reset has committed; cleanup can be retried below. */ }
       const cleanupMessage = cleanup.complete
         ? ` Đã xóa ${cleanup.deleted} file replay.`
-        : ' Dữ liệu giải đã reset; một số replay chưa xóa khỏi Storage. Có thể thử dọn lại.';
+        : ' Dữ liệu giải đã reset; một số replay chưa xóa khỏi kho lưu trữ. Có thể thử dọn lại.';
       const sourceMessage = sourcesComplete
         ? ` Đã xóa ${deletedSources} file bot trên máy chấm.`
         : ' Một số file bot trên máy chấm còn trong hàng đợi dọn; có thể thử dọn lại.';
@@ -429,8 +430,8 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
       </section>
       <EntrantsTable entrants={snapshot?.entrants || []} />
       <section className="panel">
-        <SectionHeading icon={ShieldCheck} eyebrow="TÀI KHOẢN QUẢN TRỊ" title="Quản lý bằng CLI an toàn" />
-        <p>Việc tạo và import tài khoản admin được thực hiện bằng code trên máy tin cậy, không qua trình duyệt. Dùng <code>admin_cli_service</code> với service-role key chỉ trên môi trường quản trị.</p>
+        <SectionHeading icon={ShieldCheck} eyebrow="TÀI KHOẢN QUẢN TRỊ" title="Quản lý bằng công cụ dòng lệnh an toàn" />
+        <p>Việc tạo và import tài khoản admin được thực hiện bằng công cụ dòng lệnh trên máy tin cậy, không qua trình duyệt. Dùng <code>admin_cli_service</code> với khóa quản trị chỉ trên môi trường quản trị.</p>
       </section>
     </>}
 
@@ -458,7 +459,7 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
     </>}
 
     {section === 'server' && <>
-      <section className="panel"><SectionHeading icon={Cloud} eyebrow="URL CHÍNH THỨC" title="Địa chỉ Cloudflare Tunnel" />
+      <section className="panel"><SectionHeading icon={Cloud} eyebrow="URL CHÍNH THỨC" title="Địa chỉ kết nối máy chấm" />
         <p>Địa chỉ này được lưu làm mặc định cho thí sinh khi gửi bài. Máy chấm cần cho phép kết nối từ tên miền website.</p>
         <label>URL máy chấm<input type="url" value={scoringUrl} onChange={(event) => { setScoringUrl(event.target.value); setUrlTouched(true); }} placeholder="https://score.tenmiencuaban.vn" /></label>
         <div className="phase-controls"><button className="primary" disabled={saving} onClick={() => void saveServerUrl()}>{saving ? 'Đang lưu…' : 'Lưu URL chính thức'}</button>
@@ -492,9 +493,29 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
         <Metric icon={Gauge} label="Thời gian chấm TB" value={averageDuration} />
         <Metric icon={Check} label="Tỉ lệ thành công" value={finishedJobs.length ? `${Math.round((Number(jobCounts.succeeded || 0) / Math.max(1, Object.values(jobCounts).reduce((sum, value) => sum + Number(value), 0))) * 100)}%` : '—'} />
       </div>
+      <div className="chart-grid">
+        <ColumnChart
+          title="Phân bố lượt chấm theo trạng thái"
+          loading={!snapshot}
+          data={Object.entries(jobCounts).map(([key, value]) => ({
+            label: ({ succeeded: 'Thành công', failed: 'Lỗi', timed_out: 'Quá giờ', dispatch_failed: 'Gửi lỗi', dispatching: 'Đang gửi', accepted: 'Đã nhận', running: 'Đang chạy', queued: 'Chờ' } as Record<string, string>)[key] || key,
+            value: Number(value),
+            tone: key === 'succeeded' ? 'green' as const : ['failed', 'timed_out', 'dispatch_failed'].includes(key) ? 'red' as const : ['running', 'accepted', 'dispatching'].includes(key) ? 'blue' as const : 'muted' as const,
+          }))}
+        />
+        <BarList
+          title="Thí sinh theo trạng thái"
+          loading={!snapshot}
+          data={Object.entries(counts).filter(([key]) => key !== 'total').map(([key, value]) => ({
+            label: ({ new: 'Chờ thi đầu vào', active: 'Đang thi đấu', eliminated: 'Đã dừng bước', out: 'Đã dừng bước', banned: 'Bị loại' } as Record<string, string>)[key] || key,
+            value: Number(value),
+            tone: key === 'active' ? 'green' as const : key === 'new' ? 'blue' as const : key === 'banned' ? 'red' as const : 'muted' as const,
+          }))}
+        />
+      </div>
       <SystemMetrics metrics={moduleMetrics} state={serverStatus} />
       <section className="panel"><SectionHeading icon={Database} eyebrow="KHO DỮ LIỆU TRẬN ĐẤU" title="Dung lượng replay đã ghi nhận" />
-        <div className="monitor-list"><div><span>Replay objects</span><strong>{snapshot?.replay_storage.objects ?? 0}</strong></div><div><span>Dữ liệu nén</span><strong>{formatBytes(snapshot?.replay_storage.bytes ?? 0)}</strong></div><div><span>Upload lỗi</span><strong>{snapshot?.replay_storage.failed ?? 0}</strong></div></div>
+        <div className="monitor-list"><div><span>Bản ghi replay</span><strong>{snapshot?.replay_storage.objects ?? 0}</strong></div><div><span>Dữ liệu nén</span><strong>{formatBytes(snapshot?.replay_storage.bytes ?? 0)}</strong></div><div><span>Lần tải lên lỗi</span><strong>{snapshot?.replay_storage.failed ?? 0}</strong></div></div>
       </section>
       <JobsTable jobs={failedJobs} title="Yêu cầu lỗi cần xử lý" />
     </>}
@@ -532,7 +553,7 @@ function JobsTable({ jobs, title = 'Trạng thái các yêu cầu chấm' }: { j
 
 function MatchesTable({ matches }: { matches: Array<Record<string, any>> }) {
   return <section className="panel"><SectionHeading icon={Swords} eyebrow="GHÉP CẶP" title="Các trận gần nhất" />
-    {!matches.length ? <div className="empty-state"><Swords /><h3>Chưa có trận đã chấm</h3><p>Ghép cặp và chấm vòng/ngày chưa được vận hành qua worker mới.</p></div> : <div className="table-scroll"><table>
+    {!matches.length ? <div className="empty-state"><Swords /><h3>Chưa có trận đã chấm</h3><p>Ghép cặp và chấm vòng/ngày chưa được vận hành qua hệ thống chấm mới.</p></div> : <div className="table-scroll"><table>
       <thead><tr><th>Vòng / ngày</th><th>Bảng / lượt</th><th>Thí sinh A</th><th>Thí sinh B</th><th>Điểm A</th><th>Replay</th></tr></thead>
       <tbody>{matches.map((match) => <tr key={match.id}><td>{match.rnd} / {match.day}</td><td>{match.grp} / {match.rd}</td><td>{match.player_a}</td><td>{match.player_b}</td><td>{match.state === 'completed' ? match.score_a : match.state}</td><td>{match.has_replay ? 'Có' : '—'}</td></tr>)}</tbody>
     </table></div>}

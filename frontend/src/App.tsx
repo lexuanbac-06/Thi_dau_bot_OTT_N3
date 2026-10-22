@@ -18,7 +18,11 @@ import {
   Upload,
   UserRound,
   UserX,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react';
+import { ThemeToggle, useSidebarCollapsed } from './theme';
 import Auth, { Brand } from './Auth';
 import Replay from './Replay';
 import SubmissionHistory from './SubmissionHistory';
@@ -121,7 +125,7 @@ export default function App() {
     return (
       <div className="loading-screen">
         <Swords />
-        <h2>OTT ARENA</h2>
+        <h2>UET_RPS</h2>
         <p>Đang chuẩn bị đấu trường…</p>
       </div>
     );
@@ -152,6 +156,8 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [logoutBusy, setLogoutBusy] = useState(false);
+  const [sidebarCollapsed, toggleSidebarCollapsed] = useSidebarCollapsed();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [activeJobStatus, setActiveJobStatus] = useState<ScoringJob['status'] | null>(null);
@@ -318,15 +324,33 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
 
   return (
     <div className="dashboard">
-      <aside className={`sidebar ${isAdminPage ? 'admin-sidebar' : ''}`}>
-        <Brand />
+      <button
+        type="button"
+        className={`sidebar-backdrop ${mobileNavOpen ? 'open' : ''}`}
+        aria-label="Đóng menu"
+        onClick={() => setMobileNavOpen(false)}
+      />
+      <aside className={`sidebar ${isAdminPage ? 'admin-sidebar' : ''} ${sidebarCollapsed ? 'collapsed' : ''} ${mobileNavOpen ? 'open' : ''}`}>
+        <div className="sidebar-head">
+          <Brand />
+          <button
+            type="button"
+            className="sidebar-toggle"
+            onClick={toggleSidebarCollapsed}
+            aria-label={sidebarCollapsed ? 'Mở rộng thanh điều hướng' : 'Thu gọn thanh điều hướng'}
+            aria-expanded={!sidebarCollapsed}
+            data-tip={sidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
+        </div>
         <p className="nav-caption">{isAdminPage ? 'ĐIỀU HÀNH CUỘC THI' : 'ĐẤU TRƯỜNG CỦA BẠN'}</p>
         <nav>
           {navigation.map(([key, Icon, text]) => {
             const active = isAdminPage ? path === routeByTab[key] : tab === key;
-            return <button key={key} className={active ? 'active' : ''} onClick={() => navigate(routeByTab[key])}>
+            return <button key={key} className={active ? 'active' : ''} data-tip={text} aria-label={text} onClick={() => { navigate(routeByTab[key]); setMobileNavOpen(false); }}>
               <Icon size={19} />
-              {text}
+              <span className="nav-label">{text}</span>
               {active && <ChevronRight size={15} />}
             </button>;
           })}
@@ -341,9 +365,11 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
           </a>
         </div>}
 
-        {user.role !== 'admin' && <a className="live-link" href="/live-board.json" target="_blank" rel="noreferrer">
-          <span className="live-dot" /> Theo dõi live data
+        {user.role !== 'admin' && <a className="live-link" href="/live-board.json" target="_blank" rel="noreferrer" data-tip="Theo dõi live data" aria-label="Theo dõi live data">
+          <span className="live-dot" /> <span className="nav-label">Theo dõi live data</span>
         </a>}
+
+        <div className="sidebar-tools"><ThemeToggle showLabel /></div>
 
         <div className="sidebar-user">
           <span className="avatar">{user.name.slice(0, 2).toUpperCase()}</span>
@@ -374,10 +400,11 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
       <div className="dashboard-main">
         <header className="dashboard-header">
           <span>
+            <button type="button" className="mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Mở menu"><Menu size={18} /></button>
             {isAdminPage ? 'Khu vực quản trị' : 'Không gian thi đấu'} <ChevronRight size={14} /> {isAdminPage ? (navigation.find((n) => routeByTab[n[0]] === path)?.[2] || 'Quản trị giải đấu') : navigation.find((n) => n[0] === tab)?.[2]}
           </span>
           <span className="badge">
-            <span className="live-dot" /> OTT ARENA · FIT-UET
+            <span className="live-dot" /> UET_RPS · FIT-UET
           </span>
         </header>
 
@@ -492,7 +519,7 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
                     <label className="scoring-url-field">
                       URL máy chấm do ban tổ chức cung cấp
                       <input type="url" required value={scoringUrl} placeholder="https://score.tenmiencuaban.vn" aria-describedby="scoring-url-help" onChange={(event) => { setScoringUrl(event.target.value); saveScoringUrl(event.target.value); }} />
-                      <small id="scoring-url-help">URL được kiểm tra trước khi gửi. Dùng HTTPS qua Cloudflare Tunnel; hệ thống lưu lựa chọn trên trình duyệt này.</small>
+                      <small id="scoring-url-help">URL được kiểm tra trước khi gửi. Dùng địa chỉ HTTPS của máy chấm; hệ thống lưu lựa chọn trên trình duyệt này.</small>
                     </label>
                     <label className="drop-zone">
                       <span className="upload-icon"><Upload /></span>
@@ -622,7 +649,7 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
           {tab === 'rules' && (
             <section className="panel rules">
               <p className="eyebrow">PLAY SMART. PLAY FAIR.</p>
-              <h2>Luật oẳn tù tì trên bàn cờ</h2>
+              <h2>Luật RPS trên bàn cờ</h2>
               <div className="rule-pieces">
                 <span>✊ Búa thắng Kéo</span>
                 <span>✌️ Kéo thắng Bao</span>
@@ -645,7 +672,7 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
           )}
 
           <footer className="dashboard-footer">
-            OTT ARENA <span>Viết chiến thuật của riêng bạn.</span>
+            <span className="footer-logos"><img src="/uet-logo.webp" alt="UET" /><img src="/fit-logo.png" alt="FIT" /><b>UET_RPS</b></span><span>Viết chiến thuật của riêng bạn.</span>
           </footer>
         </main>
       </div>
