@@ -44,13 +44,13 @@ class EngineReplayTests(unittest.TestCase):
         self.assertIn(move, engine.legal_moves(board, player))
 
     def test_walls_block_entry(self):
-        rules = engine.load_rules(os.path.join(RULE_DIR, "rule1.json"))
+        rules = engine.load_rules(os.path.join(RULE_DIR, "rule2.json"))
         board = {(2, 3): (0, 0)}
 
         self.assertNotIn((2, 3, 3, 3), engine.legal_moves(board, 0, rules))
 
     def test_teleport_is_optional_and_only_available_from_an_endpoint(self):
-        rules = engine.load_rules(os.path.join(RULE_DIR, "rule2.json"))
+        rules = engine.load_rules(os.path.join(RULE_DIR, "rule4.json"))
         board = {(1, 2): (0, 0)}
 
         moves = engine.legal_moves(board, 0, rules)
@@ -61,7 +61,7 @@ class EngineReplayTests(unittest.TestCase):
         self.assertNotIn((7, 6), entered)
 
     def test_teleport_captures_only_when_piece_type_can_capture(self):
-        rules = engine.load_rules(os.path.join(RULE_DIR, "rule2.json"))
+        rules = engine.load_rules(os.path.join(RULE_DIR, "rule4.json"))
         board = {(1, 2): (0, 0), (7, 6): (1, 2)}
         move = (1, 2, 7, 6)
 
@@ -73,8 +73,44 @@ class EngineReplayTests(unittest.TestCase):
         board[(7, 6)] = (1, 1)
         self.assertNotIn(move, engine.legal_moves(board, 0, rules))
 
+    def test_protected_piece_cannot_be_captured_from_outside(self):
+        rules = engine.load_rules(os.path.join(RULE_DIR, "rule3.json"))
+        board = {(1, 1): (0, 0), (2, 1): (1, 2)}
+
+        self.assertNotIn((1, 1, 2, 1), engine.legal_moves(board, 0, rules))
+
+    def test_piece_inside_protection_zone_can_capture_outside_piece(self):
+        rules = engine.load_rules(os.path.join(RULE_DIR, "rule3.json"))
+        board = {(2, 1): (0, 0), (3, 2): (1, 2)}
+
+        self.assertIn((2, 1, 3, 2), engine.legal_moves(board, 0, rules))
+
+    def test_pieces_inside_protection_zone_cannot_capture_each_other(self):
+        rules = engine.load_rules(os.path.join(RULE_DIR, "rule3.json"))
+        board = {(2, 1): (0, 0), (3, 1): (1, 2)}
+
+        self.assertNotIn((2, 1, 3, 1), engine.legal_moves(board, 0, rules))
+
+    def test_rules_progress_cumulatively_by_round(self):
+        round_rules = [
+            engine.load_rules(os.path.join(RULE_DIR, f"rule{number}.json"))["board"]
+            for number in range(1, 6)
+        ]
+
+        self.assertFalse(round_rules[0]["walls"])
+        self.assertFalse(round_rules[0]["protection_zones"])
+        self.assertFalse(round_rules[0]["teleporters"])
+        self.assertFalse(round_rules[0]["piece_changers"])
+        self.assertTrue(round_rules[1]["walls"])
+        self.assertFalse(round_rules[1]["protection_zones"])
+        self.assertEqual(len(round_rules[2]["protection_zones"]), 4)
+        self.assertFalse(round_rules[2]["teleporters"])
+        self.assertTrue(round_rules[3]["teleporters"])
+        self.assertFalse(round_rules[3]["piece_changers"])
+        self.assertTrue(round_rules[4]["piece_changers"])
+
     def test_piece_changer_applies_when_entering_and_again_on_reentry(self):
-        rules = engine.load_rules(os.path.join(RULE_DIR, "rule4.json"))
+        rules = engine.load_rules(os.path.join(RULE_DIR, "rule5.json"))
         board = {(3, 4): (0, 0)}
 
         board = engine.apply(board, (3, 4, 4, 4), rules)
@@ -93,6 +129,11 @@ class EngineReplayTests(unittest.TestCase):
             for end in teleporter["ends"]
         )
         special_cells.extend(
+            tuple(cell)
+            for zone in board_rules["protection_zones"]
+            for cell in zone
+        )
+        special_cells.extend(
             tuple(changer["position"])
             for changer in board_rules["piece_changers"]
         )
@@ -104,14 +145,21 @@ class EngineReplayTests(unittest.TestCase):
         )
 
     def test_overlapping_special_cells_are_rejected(self):
-        rules = engine.load_rules(os.path.join(RULE_DIR, "rule2.json"))
+        rules = engine.load_rules(os.path.join(RULE_DIR, "rule4.json"))
         rules["board"]["walls"].append([1, 2])
 
         with self.assertRaisesRegex(ValueError, "bị khai báo trùng"):
             engine._normalize_rules(rules)
 
+    def test_protection_zones_must_be_horizontal_and_symmetric(self):
+        rules = engine.load_rules(os.path.join(RULE_DIR, "rule3.json"))
+        rules["board"]["protection_zones"][0] = [[2, 1], [2, 2]]
+
+        with self.assertRaisesRegex(ValueError, "chiều ngang"):
+            engine._normalize_rules(rules)
+
     def test_encoded_bot_state_contains_active_rules(self):
-        rules = engine.load_rules(os.path.join(RULE_DIR, "rule1.json"))
+        rules = engine.load_rules(os.path.join(RULE_DIR, "rule2.json"))
 
         state = engine.encode(engine.initial(), 0, 0, rules)
 

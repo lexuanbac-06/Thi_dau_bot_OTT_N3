@@ -38,7 +38,10 @@ def _normalize_rules(data):
         raise ValueError(f"Không hỗ trợ schema_version={data['schema_version']!r}")
 
     board = data["board"]
-    allowed = {"width", "height", "walls", "teleporters", "piece_changers"}
+    allowed = {
+        "width", "height", "walls", "protection_zones",
+        "teleporters", "piece_changers",
+    }
     if not isinstance(board, dict) or set(board) - allowed:
         raise ValueError("board phải là object và không chứa trường luật không được hỗ trợ")
     width, height = board.get("width", N), board.get("height", N)
@@ -61,6 +64,39 @@ def _normalize_rules(data):
         cell = _coordinate(item, f"board.walls[{index}]")
         claim(cell, "walls")
         walls.append(list(cell))
+
+    protection_zones = []
+    raw_zones = board.get("protection_zones", [])
+    if not isinstance(raw_zones, list):
+        raise ValueError("board.protection_zones phải là danh sách vùng")
+    if raw_zones and len(raw_zones) != 4:
+        raise ValueError("Phải khai báo đúng 4 vùng bảo vệ")
+    for index, raw_zone in enumerate(raw_zones):
+        if not isinstance(raw_zone, list) or len(raw_zone) != 2:
+            raise ValueError(
+                f"board.protection_zones[{index}] phải gồm đúng hai ô"
+            )
+        cells = [
+            _coordinate(cell, f"board.protection_zones[{index}][{cell_index}]")
+            for cell_index, cell in enumerate(raw_zone)
+        ]
+        if cells[0][1] != cells[1][1] or abs(cells[0][0] - cells[1][0]) != 1:
+            raise ValueError(
+                f"board.protection_zones[{index}] phải gồm hai ô liền nhau theo chiều ngang"
+            )
+        for cell in cells:
+            claim(cell, "protection_zones")
+        protection_zones.append([list(cell) for cell in cells])
+    if protection_zones:
+        zone_sets = {
+            frozenset(map(tuple, zone)) for zone in protection_zones
+        }
+        rotated_zones = {
+            frozenset((N - 1 - x, N - 1 - y) for x, y in zone)
+            for zone in zone_sets
+        }
+        if zone_sets != rotated_zones:
+            raise ValueError("Bốn vùng bảo vệ phải đối xứng quay 180 độ")
 
     teleporters = []
     raw_teleporters = board.get("teleporters", [])
@@ -129,6 +165,7 @@ def _normalize_rules(data):
             "width": N,
             "height": N,
             "walls": walls,
+            "protection_zones": protection_zones,
             "teleporters": teleporters,
             "piece_changers": piece_changers,
         },
@@ -156,12 +193,16 @@ def _teleporter_destinations(rules):
     return destinations
 
 
-def _can_enter(b, p, piece_type, destination, walls):
+def _can_enter(b, p, piece_type, destination, walls, protected_cells):
     if destination in walls:
         return False
     occupant = b.get(destination)
-    return occupant is None or (
-        occupant[0] != p and BEAT[piece_type] == occupant[1]
+    if occupant is None:
+        return True
+    return (
+        occupant[0] != p
+        and destination not in protected_cells
+        and BEAT[piece_type] == occupant[1]
     )
 
 
@@ -178,6 +219,11 @@ def legal_moves(b, p, rules=None):
     walls = {
         tuple(cell) for cell in rules["board"]["walls"]
     } if rules is not None else set()
+    protected_cells = {
+        tuple(cell)
+        for zone in rules["board"]["protection_zones"]
+        for cell in zone
+    } if rules is not None else set()
     teleporters = _teleporter_destinations(rules)
     for (x, y), (o, t) in b.items():
         if o != p:
@@ -185,10 +231,12 @@ def legal_moves(b, p, rules=None):
         for dx, dy in DIRS:
             nx, ny = x + dx, y + dy
             if 0 <= nx < N and 0 <= ny < N:
-                if _can_enter(b, p, t, (nx, ny), walls):
+                if _can_enter(b, p, t, (nx, ny), walls, protected_cells):
                     out.append((x, y, nx, ny))
         destination = teleporters.get((x, y))
-        if destination is not None and _can_enter(b, p, t, destination, walls):
+        if destination is not None and _can_enter(
+            b, p, t, destination, walls, protected_cells
+        ):
             move = (x, y, destination[0], destination[1])
             if move not in out:
                 out.append(move)

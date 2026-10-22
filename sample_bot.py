@@ -11,6 +11,11 @@ for line in sys.stdin:
     b = {(x, y): (o, t) for x, y, o, t in s["pieces"]}
     rules = s.get("rules", {}).get("board", {})
     walls = {tuple(cell) for cell in rules.get("walls", [])}
+    protected_cells = {
+        tuple(cell)
+        for zone in rules.get("protection_zones", [])
+        for cell in zone
+    }
     teleporters = {}
     for teleporter in rules.get("teleporters", []):
         first, second = map(tuple, teleporter["ends"])
@@ -23,7 +28,9 @@ for line in sys.stdin:
             return False
         occupant = b.get(destination)
         return occupant is None or (
-            occupant[0] != me and BEAT[piece_type] == occupant[1]
+            occupant[0] != me
+            and destination not in protected_cells
+            and BEAT[piece_type] == occupant[1]
         )
 
     for (x, y), (o, t) in b.items():
