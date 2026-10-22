@@ -72,16 +72,25 @@ Ví dụ nếu kết quả tổng với ba bot lần lượt là `+2`, `0`, `−
 ### Điểm trận trong một ngày
 Một **trận** gồm hai ván, mỗi bên được đi trước một ván. Gọi `s` là tổng kết quả của bot A trong hai ván: thắng `+1`, hòa `0`, thua `−1` cho từng ván. Do đó `s` nằm trong `[-2, 2]`. Ví dụ: A thắng ván đầu và thua ván hai thì `s = +1 + (−1) = 0`.
 
-- `s > 0`: A thắng trận; A nhận `pts +1`, B nhận `pts −1`.
-- `s < 0`: A thua trận; A nhận `pts −1`, B nhận `pts +1`.
-- `s = 0`: trận hòa; mỗi bên nhận `pts 0`.
+Mỗi người bắt đầu mỗi ngày với **350 điểm**. Sau đó, mỗi trận cập nhật điểm như sau:
 
-`s` là **điểm ván của A**, không phải điểm trận. Giá trị `s` cũng được cộng vào `gs` của A; `gs` của B nhận giá trị đối dấu. Ví dụ `s = +2` nghĩa là A thắng cả hai ván, nhưng A chỉ được `+1 điểm trận`; `s = 0` nghĩa là trận hòa kể cả khi mỗi bên thắng một ván.
+- `s > 0`: A thắng trận; A được cộng 30 điểm, B bị trừ 30 điểm.
+- `s < 0`: A thua trận; A bị trừ 30 điểm, B được cộng 30 điểm.
+- `s = 0`: không có điểm cơ bản cộng/trừ. Hai bên vẫn có thể được cộng hoặc trừ điểm theo thành tích từng ván.
 
-Không cần nộp lại bot mỗi ngày: thí sinh đã qua vòng đầu vào luôn có bot, và nếu không có bài mới thì hệ thống dùng bot đã nộp trước đó trong snapshot ngày thi. Vì vậy, không nộp lại bot không khiến thí sinh bị trừ điểm. Nếu snapshot thực sự không có bot của một bên thì bên đó bị xử thua (`pts −1`) khi đối thủ có bot; nếu cả hai bên đều không có bot, trận được tính hòa. Người được bye không đấu trận và không nhận điểm cho lượt đó.
+Ngoài điểm cơ bản, mỗi ván được xét riêng. Người thắng ván được cộng 5 điểm và người thua bị trừ 5 điểm cho mỗi tiêu chí đạt được:
+
+- Thắng với số quân còn lại trên bàn nhiều hơn đối thủ ít nhất 5 quân.
+- Thắng trong không quá 40 lượt đi tổng cộng của cả hai bên.
+
+Hai tiêu chí được cộng dồn; một ván có thể đem lại tối đa 10 điểm bonus cho người thắng và −10 cho người thua. Ván hòa không có bonus. Vì vậy, trận thắng có thể thay đổi điểm từ +30 đến +50 cho người thắng (và −30 đến −50 cho người thua); trận hòa BO2 vẫn có thể làm điểm thay đổi do bonus của từng ván.
+
+`s` là **điểm ván của A**, không phải điểm xếp hạng. `gs` vẫn được cộng bằng `s` cho A và giá trị đối dấu cho B, dùng làm tiêu chí phụ khi bằng `pts`. Ví dụ `s = +2` nghĩa là A thắng cả hai ván; điểm cơ bản trận của A là +30 trước khi cộng bonus. `s = 0` nghĩa là trận hòa kể cả khi mỗi bên thắng một ván.
+
+Không cần nộp lại bot mỗi ngày: thí sinh đã qua vòng đầu vào luôn có bot, và nếu không có bài mới thì hệ thống dùng bot đã nộp trước đó trong snapshot ngày thi. Vì vậy, không nộp lại bot không khiến thí sinh bị trừ điểm. Nếu snapshot thực sự không có bot của một bên thì bên đó bị xử thua (điểm cơ bản ±30, không có bonus ván); nếu cả hai bên đều không có bot, trận hòa và không đổi điểm. Người được bye không đấu trận và không nhận điểm cho lượt đó.
 
 ### Xếp hạng ngày và ghép trận
-- Điểm `pts` và `gs` được tính lại từ 0 cho từng ngày.
+- Điểm `pts` được tính lại từ 350 cho từng ngày; `gs` được tính lại từ 0.
 - Xếp hạng theo `pts` giảm dần; nếu bằng nhau thì `gs` giảm dần; nếu vẫn bằng nhau thì theo thứ tự ban đầu của ngày.
 - Ngày đầu thứ tự ban đầu lấy từ seed chia bảng. Ngày sau dùng thứ hạng trung bình của các ngày đã chấm để xếp thứ tự ban đầu.
 - Mỗi bảng có 7 lượt ghép trận trong ngày. Lượt đầu ghép nửa trên thứ tự ban đầu với nửa dưới. Các lượt sau ghép theo thứ tự điểm hiện tại, đồng thời ưu tiên đối thủ chưa gặp lại. Nếu bảng lẻ người, hệ thống cho bye một người ở cuối thứ tự; ưu tiên người chưa từng được bye.
