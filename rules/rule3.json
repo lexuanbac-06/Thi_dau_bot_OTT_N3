@@ -11,25 +11,13 @@
       [4, 5],
       [5, 5]
     ],
-    "teleporters": [
-      {
-        "ends": [[1, 2], [7, 6]],
-        "activation": "piece_starts_turn_on_endpoint",
-        "use": "optional",
-        "occupied_destination": "capture_if_legal"
-      },
-      {
-        "ends": [[2, 6], [6, 2]],
-        "activation": "piece_starts_turn_on_endpoint",
-        "use": "optional",
-        "occupied_destination": "capture_if_legal"
-      },
-      {
-        "ends": [[4, 1], [4, 7]],
-        "activation": "piece_starts_turn_on_endpoint",
-        "use": "optional",
-        "occupied_destination": "capture_if_legal"
-      }
-    ]
+    "protection_zones": [
+      [[2, 1], [3, 1]],
+      [[5, 7], [6, 7]],
+      [[1, 3], [2, 3]],
+      [[6, 5], [7, 5]]
+    ],
+    "teleporters": [],
+    "piece_changers": []
   }
 }
