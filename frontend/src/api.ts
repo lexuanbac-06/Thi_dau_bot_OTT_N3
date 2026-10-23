@@ -281,11 +281,24 @@ export async function getMyTodayMatches(): Promise<TodayMatch[]> {
 
 export type Move = [number, number, number, number];
 
+export interface GameRules {
+  schema_version: number;
+  board: {
+    width: number;
+    height: number;
+    walls: number[][];
+    protection_zones: number[][][];
+    teleporters: Array<{ ends: number[][] }>;
+    piece_changers: Array<{ position: number[] }>;
+  };
+}
+
 export interface ReplayGame {
   players: ('a' | 'b')[];
   moves: [number, Move][];
   result?: number;
   fault?: boolean;
+  rules?: GameRules;
 }
 
 export interface ReplayMatch {

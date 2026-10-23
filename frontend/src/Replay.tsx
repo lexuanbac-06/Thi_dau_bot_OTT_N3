@@ -90,8 +90,14 @@ export default function Replay({ data, onDay }: { data: Replays; onDay: (round: 
   for (const [, move] of game?.moves.slice(0, step) ?? []) {
     const [x, y, nx, ny] = move;
     const piece = pieces.get(`${x},${y}`);
-    if (piece) { pieces.delete(`${x},${y}`); pieces.set(`${nx},${ny}`, piece); }
+    if (piece) {
+      pieces.delete(`${x},${y}`);
+      const changer = game?.rules?.board.piece_changers.find(([cx, cy]) => cx === nx && cy === ny);
+      const changedPiece = changer ? { ...piece, type: [2, 0, 1][piece.type] } : piece;
+      pieces.set(`${nx},${ny}`, changedPiece);
+    }
   }
+  const ruleBoard = game?.rules?.board;
   const last = step ? game?.moves[step - 1]?.[1] : undefined;
   const botName = (side: 'a' | 'b') => side === 'a' ? match?.a : match?.b;
 
@@ -128,12 +134,30 @@ export default function Replay({ data, onDay }: { data: Replays; onDay: (round: 
                   const x = index % 9, y = 8 - Math.floor(index / 9), piece = pieces.get(`${x},${y}`);
                   const isGoal = (x === 0 && y === 0) || (x === 8 && y === 8);
                   const isLast = Boolean(last && x === last[2] && y === last[3]);
+                  const isWall = ruleBoard?.walls.some(([wx, wy]) => wx === x && wy === y) ?? false;
+                  const isProtected = ruleBoard?.protection_zones.some((zone) =>
+                    zone.some(([px, py]) => px === x && py === y),
+                  ) ?? false;
+                  const isTeleporter = ruleBoard?.teleporters.some(({ ends }) =>
+                    ends.some(([tx, ty]) => tx === x && ty === y),
+                  ) ?? false;
+                  const isChanger = ruleBoard?.piece_changers.some(({ position }) =>
+                    position[0] === x && position[1] === y,
+                  ) ?? false;
+                  const cellTitle = isWall ? 'Tường' : isProtected ? 'Vùng bảo vệ'
+                    : isTeleporter ? 'Cổng dịch chuyển' : isChanger ? 'Ô đổi quân' : undefined;
                   return (
                     <div
                       role="gridcell"
                       key={index}
                       className={`square ${(x + y) % 2 ? 'dark' : ''} ${isGoal ? 'goal' : ''} ${isLast ? 'last' : ''}`}
-                      aria-label={`${'abcdefghi'[x]}${y + 1}${piece ? `, ${['Búa', 'Bao', 'Kéo'][piece.type]}, bên ${piece.owner}` : ''}`}
+                      style={isWall ? { backgroundColor: '#4d4d5c' }
+                        : isProtected ? { boxShadow: 'inset 0 0 0 3px #8a78ee' }
+                          : isTeleporter ? { boxShadow: 'inset 0 0 0 3px #41b7cf' }
+                            : isChanger ? { boxShadow: 'inset 0 0 0 3px #e4ad4f' }
+                              : undefined}
+                      title={cellTitle}
+                      aria-label={`${'abcdefghi'[x]}${y + 1}${cellTitle ? `, ${cellTitle}` : ''}${piece ? `, ${['Búa', 'Bao', 'Kéo'][piece.type]}, bên ${piece.owner}` : ''}`}
                     >
                       {x === 0 && <span className="coord-rank" aria-hidden="true">{y + 1}</span>}
                       {y === 0 && <span className="coord-file" aria-hidden="true">{'abcdefghi'[x]}</span>}

@@ -39,6 +39,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from data.supabase_client import get_supabase
+from . import game_rules
 from .judge0_runner import Judge0Error, default_bot_language, judge0_status, run_match
 
 logger = logging.getLogger("ott.scoring")
@@ -579,6 +580,22 @@ def _match_source(job_id):
     return path.read_bytes()
 
 
+def _round_rules(round_number):
+    rows = get_supabase().select("round_config", {
+        "rnd": f"eq.{round_number}",
+        "select": "game_rule_key,game_rules",
+        "limit": "1",
+    })
+    if not rows:
+        raise RuntimeError(f"No game rules configured for tournament round {round_number}")
+    try:
+        return game_rules.normalize_rules(rows[0]["game_rules"]), rows[0]["game_rule_key"]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError(
+            f"Invalid game rules configured for tournament round {round_number}: {exc}"
+        ) from exc
+
+
 def _process_tournament_day(round_number, day_number):
     sb = get_supabase()
     day_rows = sb.select("contest_days", {
@@ -601,6 +618,8 @@ def _process_tournament_day(round_number, day_number):
         day_state = day_rows[0]["state"]
     if day_state not in ("open", "grading"):
         return
+    rules, rule_key = _round_rules(round_number)
+    logger.info("Using %s for tournament round %s", rule_key, round_number)
     for rd in range(1, 8):
         matches = _rpc("prepare_swiss_round", {"p_rnd": round_number, "p_day": day_number, "p_rd": rd}) or []
         pending = [row for row in matches if row.get("match_state") in ("pending", "running")]
@@ -616,7 +635,7 @@ def _process_tournament_day(round_number, day_number):
                 try:
                     with _tournament_lock:
                         _active_match_ids.add(int(row["match_id"]))
-                    result = run_match(source_a, source_b)
+                    result = run_match(source_a, source_b, rules=rules)
                     try:
                         # Keep the match leased as running until replay persistence
                         # has finished, so an admin reset cannot orphan its upload.

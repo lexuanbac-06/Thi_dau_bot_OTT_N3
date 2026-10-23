@@ -25,6 +25,7 @@ Tài liệu này ghi lại thể thức BTC đã cung cấp làm yêu cầu chu�
 
 - Mỗi cặp đấu BO2; mỗi bên đi trước một ván. Tổng điểm ván của A nằm trong `[-2, 2]`.
 - Kết quả trận: thắng `+1` điểm bảng, thua `-1`, hòa `0`. Không có bài hợp lệ khi BTC chốt ngày bị xử `-1` theo quy tắc vắng mặt.
+- Mỗi vòng dùng một preset luật bàn cờ JSON (`rules/rule1.json`–`rules/rule5.json`), được BTC chọn trước khi vòng bắt đầu. Snapshot JSON lưu trên `round_config` và được dùng cho mọi trận trong vòng; không sửa công thức điểm trận.
 - Có 7 lượt ghép mỗi ngày. Lượt 1 ghép nửa trên thứ tự ban đầu với nửa dưới. Các lượt 2–7 ghép người cùng điểm trận, ưu tiên đối thủ chưa gặp trong ngày và dùng thứ tự ban đầu để phá hòa.
 - Khi chốt ngày, mỗi người không nộp bài hợp lệ nhận `-1` cho trận đó; nếu cả hai vắng mặt thì mỗi người nhận `-1`. Bye nhận `0` điểm; hệ thống ưu tiên người chưa từng nhận bye trong vòng, và chỉ lặp bye nếu không còn lựa chọn khác.
 
@@ -45,7 +46,9 @@ Vòng đầu vào dùng ba bot chuẩn trong `sample_bots/entry_bot0.py`–`entr
 
 Migration `0006_online_tournament_operations.sql` bổ sung sức chứa, luật vòng, ghép cặp/bye, xử vắng mặt, chốt bảng mỗi ngày, công bố trễ, điều kiện 4/6, vé vớt/chuyển vòng và bảng tạm admin. Scoring module gọi các RPC này, chạy trận BO2 trên Judge0, lưu kết quả/replay lên Supabase và giới hạn song song. `tournament.py` nay chỉ đọc trạng thái Supabase; mã SQLite cũ và `data/sync.py` đã được đưa vào vùng backup/loại khỏi đường vận hành.
 
-**Cần áp dụng và kiểm chứng migration `0005` và `0006` trên project Supabase trước khi chạy giải.** Chưa thể xác nhận SQL đã chạy trên project thật từ workspace. Chỉ các vòng 1–4 online được tạo; vòng 5 offline dừng ngoài phạm vi.
+Migration `0017_round_game_rules.sql` thêm snapshot luật JSON theo vòng và RPC quản trị chọn preset. Admin chọn luật tại mục “Chọn bộ luật thi đấu”; chỉ vòng chưa bắt đầu mới đổi được. Scoring module xác thực snapshot, nhúng bộ xử lý luật vào chương trình Judge0, gửi luật trong state của bot và lưu luật cùng replay. Các kết quả BO2 tiếp tục được quy đổi bằng `sign(score_a)` thành `+1`, `0` hoặc `-1`.
+
+**Cần áp dụng và kiểm chứng các migration đến `0017` trên project Supabase trước khi chạy giải.** Chưa thể xác nhận SQL đã chạy trên project thật từ workspace. Chỉ các vòng 1–4 online được tạo; vòng 5 offline dừng ngoài phạm vi.
 
 ## Điểm đã chốt
 

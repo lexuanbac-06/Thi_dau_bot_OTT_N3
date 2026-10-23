@@ -4,6 +4,11 @@ import {
   FileSpreadsheet, Gauge, RefreshCw, Server, ShieldCheck,
   Swords, Trophy, Upload, Users, UserX, RotateCcw,
 } from 'lucide-react';
+import rule1 from '../../rules/rule1.json';
+import rule2 from '../../rules/rule2.json';
+import rule3 from '../../rules/rule3.json';
+import rule4 from '../../rules/rule4.json';
+import rule5 from '../../rules/rule5.json';
 import { getScoringAdminMetrics, getScoringBenchmarks, postScoringAdmin, probeScoringServer, supabase, uploadScoringBenchmark, type ScoringBenchmark } from './api';
 import { BarList, ColumnChart } from './Charts';
 
@@ -25,6 +30,14 @@ type MonitorSnapshot = {
   round_config: Array<Record<string, any>>;
   replay_storage: { objects: number; bytes: number; failed: number };
 };
+
+const ROUND_RULE_PRESETS = [
+  { key: 'rule1', label: 'Luật 1 — Bàn cờ cơ bản', rules: rule1 },
+  { key: 'rule2', label: 'Luật 2 — Thêm tường', rules: rule2 },
+  { key: 'rule3', label: 'Luật 3 — Thêm vùng bảo vệ', rules: rule3 },
+  { key: 'rule4', label: 'Luật 4 — Thêm cổng dịch chuyển', rules: rule4 },
+  { key: 'rule5', label: 'Luật 5 — Thêm ô đổi quân', rules: rule5 },
+] as const;
 
 const sectionForRoute = (route: string): Section => route === '/admin/server' ? 'server'
   : route === '/admin/observation' ? 'observation'
@@ -85,6 +98,7 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
   const [round, setRound] = useState(1);
   const [day, setDay] = useState(1);
   const [tournamentActionBusy, setTournamentActionBusy] = useState(false);
+  const [savingRuleRound, setSavingRuleRound] = useState<number | null>(null);
   const [resetBusy, setResetBusy] = useState(false);
   const [replayCleanupBusy, setReplayCleanupBusy] = useState(false);
   const [eliminatedContestants, setEliminatedContestants] = useState<Array<Record<string, any>>>([]);
@@ -276,6 +290,29 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
     finally { setTournamentActionBusy(false); }
   }
 
+  async function setRoundRule(roundNumber: number, ruleKey: string) {
+    const preset = ROUND_RULE_PRESETS.find((item) => item.key === ruleKey);
+    if (!preset) {
+      setError(`Preset luật không hợp lệ: ${ruleKey}`);
+      return;
+    }
+    setSavingRuleRound(roundNumber); setError(''); setMessage('');
+    try {
+      const { error: rpcError } = await supabase.rpc('admin_set_round_game_rules', {
+        p_rnd: roundNumber,
+        p_rule_key: preset.key,
+        p_rules: preset.rules,
+      });
+      if (rpcError) throw describeSupabaseError(rpcError, 'Không lưu được luật vòng thi');
+      setMessage(`Đã áp dụng ${preset.label} cho vòng ${roundNumber}.`);
+      await refresh(false);
+    } catch (err: any) {
+      setError(err?.message || 'Không lưu được luật vòng thi.');
+    } finally {
+      setSavingRuleRound(null);
+    }
+  }
+
   async function resetTournament() {
     const confirmed = window.confirm(
       'Reset giải đấu về trạng thái ban đầu? Thao tác này xóa lượt chấm, bài nộp, trận đấu, replay và bảng xếp hạng; gỡ trạng thái loại và đặt lại lượt thi đầu vào. Tài khoản cùng cấu hình giải được giữ lại. Không thể hoàn tác.'
@@ -427,6 +464,31 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
         <p className="muted server-note">Reset giữ tài khoản, cấu hình giải và URL máy chấm; xóa dữ liệu thi/replay, gỡ trạng thái loại, đặt mọi thí sinh về đầu vào ngày 0. Nếu lượt chấm hoặc trận còn đang chạy, reset sẽ bị từ chối để tránh xóa dữ liệu giữa chừng; chờ hoàn tất rồi thử lại. Không thể hoàn tác.</p>
         {!scoringUrl && <p className="muted server-note">Trước khi điều hành, cấu hình địa chỉ máy chấm trong mục “Quản trị máy chấm”.</p>}
         {phase === 'round' && round === 5 && <p className="muted server-note">Vòng thứ năm thi offline chưa được cài đặt. Hệ thống này chỉ vận hành các vòng online.</p>}
+      </section>
+      <section className="panel">
+        <SectionHeading icon={Swords} eyebrow="LUẬT BÀN CỜ THEO VÒNG" title="Chọn bộ luật thi đấu" />
+        <p className="muted server-note">Luật được lưu thành snapshot cho cả vòng và truyền vào từng trận. Có thể đổi luật cho vòng chưa bắt đầu; vòng hiện tại sẽ khóa khi đã vào thi. Cách tính điểm trận vẫn là thắng +1, thua -1, hòa 0.</p>
+        <div className="phase-controls">
+          {snapshot?.round_config.map((config) => {
+            const roundNumber = Number(config.rnd);
+            const canEdit = phase === 'entry' || (phase === 'round' && roundNumber > round);
+            return (
+              <label key={roundNumber}>
+                Vòng {roundNumber}{config.is_offline ? ' · Offline' : ''}
+                <select
+                  value={config.game_rule_key || 'rule1'}
+                  disabled={!canEdit || savingRuleRound !== null}
+                  onChange={(event) => void setRoundRule(roundNumber, event.target.value)}
+                >
+                  {ROUND_RULE_PRESETS.map((preset) => (
+                    <option key={preset.key} value={preset.key}>{preset.label}</option>
+                  ))}
+                </select>
+                {savingRuleRound === roundNumber && <small className="muted">Đang lưu…</small>}
+              </label>
+            );
+          })}
+        </div>
       </section>
       <EntrantsTable entrants={snapshot?.entrants || []} />
       <section className="panel">
