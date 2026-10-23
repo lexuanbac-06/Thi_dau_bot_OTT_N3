@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "board": {
+    "width": 9,
+    "height": 9,
+    "walls": [],
+    "protection_zones": [],
+    "teleporters": [],
+    "piece_changers": []
+  }
+}
