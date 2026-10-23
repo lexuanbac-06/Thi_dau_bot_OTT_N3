@@ -549,6 +549,7 @@ def _play_match(args, record, on_move=None, delay=0.0, rules=None):
                 "players": ["a", "b"] if first == 0 else ["b", "a"],
                 "result": r,
                 "moves": moves,
+                "rules": rules,
             })
     return (s, games) if record else s
 

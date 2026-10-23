@@ -1,5 +1,4 @@
--- Persist an immutable JSON rule snapshot per round and allow admins to choose
--- one of the checked-in rule presets before that round starts.
+-- Persist the fixed, cumulative game-rule preset assigned to each online round.
 
 alter table public.round_config
   add column if not exists game_rule_key text not null default 'rule1'
@@ -7,55 +6,48 @@ alter table public.round_config
   add column if not exists game_rules jsonb not null default
     '{"schema_version":1,"board":{"width":9,"height":9,"walls":[],"protection_zones":[],"teleporters":[],"piece_changers":[]}}'::jsonb;
 
-create or replace function public.admin_set_round_game_rules(
-  p_rnd int,
-  p_rule_key text,
-  p_rules jsonb
-)
-returns public.round_config
-language plpgsql security definer set search_path = public as $$
-declare
-  v_state public.tournament_state;
-  v_config public.round_config;
-begin
-  if not public.is_admin() then
-    raise exception 'admin_required' using errcode = '42501';
-  end if;
-  if p_rnd < 1 or p_rnd > 4
-     or p_rule_key not in ('rule1', 'rule2', 'rule3', 'rule4', 'rule5') then
-    raise exception 'invalid_round_rule' using errcode = '22023';
-  end if;
-  if jsonb_typeof(p_rules) is distinct from 'object'
-     or p_rules->>'schema_version' is distinct from '1'
-     or jsonb_typeof(p_rules->'board') is distinct from 'object'
-     or (p_rules->'board'->>'width') is distinct from '9'
-     or (p_rules->'board'->>'height') is distinct from '9'
-     or jsonb_typeof(p_rules->'board'->'walls') is distinct from 'array'
-     or jsonb_typeof(p_rules->'board'->'protection_zones') is distinct from 'array'
-     or jsonb_typeof(p_rules->'board'->'teleporters') is distinct from 'array'
-     or jsonb_typeof(p_rules->'board'->'piece_changers') is distinct from 'array' then
-    raise exception 'invalid_game_rules' using errcode = '22023';
-  end if;
-
-  select * into v_state
-    from public.tournament_state
-   where id = 1
-   for update;
-  if not found then raise exception 'tournament_state_missing'; end if;
-  if v_state.phase = 'done'
-     or (v_state.phase = 'round' and v_state.current_round >= p_rnd)
-     or exists (select 1 from public.matches m where m.rnd = p_rnd) then
-    raise exception 'round_rules_locked' using errcode = '55000';
-  end if;
-
-  update public.round_config
-     set game_rule_key = p_rule_key,
-         game_rules = p_rules
-   where rnd = p_rnd
-   returning * into v_config;
-  if not found then raise exception 'round_not_configured'; end if;
-  return v_config;
-end $$;
-
-revoke all on function public.admin_set_round_game_rules(int, text, jsonb) from public, anon;
-grant execute on function public.admin_set_round_game_rules(int, text, jsonb) to authenticated;
+update public.round_config
+set game_rule_key = 'rule' || rnd::text,
+    game_rules = case rnd
+      when 1 then jsonb_build_object(
+        'schema_version', 1,
+        'board', jsonb_build_object(
+          'width', 9, 'height', 9,
+          'walls', '[]'::jsonb,
+          'protection_zones', '[]'::jsonb,
+          'teleporters', '[]'::jsonb,
+          'piece_changers', '[]'::jsonb
+        )
+      )
+      when 2 then jsonb_build_object(
+        'schema_version', 1,
+        'board', jsonb_build_object(
+          'width', 9, 'height', 9,
+          'walls', '[[3,3],[4,3],[5,3],[3,5],[4,5],[5,5]]'::jsonb,
+          'protection_zones', '[]'::jsonb,
+          'teleporters', '[]'::jsonb,
+          'piece_changers', '[]'::jsonb
+        )
+      )
+      when 3 then jsonb_build_object(
+        'schema_version', 1,
+        'board', jsonb_build_object(
+          'width', 9, 'height', 9,
+          'walls', '[[3,3],[4,3],[5,3],[3,5],[4,5],[5,5]]'::jsonb,
+          'protection_zones', '[[[2,1],[3,1]],[[5,7],[6,7]],[[1,3],[2,3]],[[6,5],[7,5]]]'::jsonb,
+          'teleporters', '[]'::jsonb,
+          'piece_changers', '[]'::jsonb
+        )
+      )
+      when 4 then jsonb_build_object(
+        'schema_version', 1,
+        'board', jsonb_build_object(
+          'width', 9, 'height', 9,
+          'walls', '[[3,3],[4,3],[5,3],[3,5],[4,5],[5,5]]'::jsonb,
+          'protection_zones', '[[[2,1],[3,1]],[[5,7],[6,7]],[[1,3],[2,3]],[[6,5],[7,5]]]'::jsonb,
+          'teleporters', '[{"ends":[[1,2],[7,6]],"activation":"piece_starts_turn_on_endpoint","use":"optional","occupied_destination":"capture_if_legal"},{"ends":[[2,6],[6,2]],"activation":"piece_starts_turn_on_endpoint","use":"optional","occupied_destination":"capture_if_legal"},{"ends":[[4,1],[4,7]],"activation":"piece_starts_turn_on_endpoint","use":"optional","occupied_destination":"capture_if_legal"}]'::jsonb,
+          'piece_changers', '[]'::jsonb
+        )
+      )
+    end
+where rnd between 1 and 4;

@@ -22,6 +22,26 @@ sys.modules.setdefault("bcrypt", bcrypt_mock)
 # Test match_runner logic (không cần DB)
 # ---------------------------------------------------------------------------
 class TestMatchRunnerUnit:
+    def test_finals_matches_use_round_five_rules(self):
+        from finals import match_runner
+
+        with patch.object(match_runner, "_mark_running"), \
+             patch.object(match_runner, "_bot_path", side_effect=["alice.py", "bob.py"]), \
+             patch.object(match_runner.game_engine, "play_match_recorded", return_value=(1, [])) as play, \
+             patch.object(match_runner, "_save_result"), \
+             patch.object(match_runner, "_update_standings"), \
+             patch.object(match_runner.live_manager, "publish"):
+            match_runner._run_match({
+                "request_id": "final-rule-test",
+                "match_id": 1,
+                "player_a": "alice",
+                "player_b": "bob",
+                "snap_dir": "snapshots",
+            })
+
+        assert play.call_args.kwargs["rules"] == match_runner.FINALS_RULES
+        assert match_runner.FINALS_RULES["board"]["piece_changers"]
+
     def test_enqueue_returns_request_id(self):
         """enqueue_match phải trả về request_id và match_id."""
         with patch("finals.match_runner.db") as mock_db, \

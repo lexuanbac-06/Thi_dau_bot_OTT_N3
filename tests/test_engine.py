@@ -182,6 +182,17 @@ class EngineReplayTests(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertEqual(received_rules, [rules, rules])
 
+    def test_recorded_games_include_the_rules_snapshot(self):
+        rules = engine.load_rules(os.path.join(RULE_DIR, "rule5.json"))
+
+        with patch.object(engine, "play", return_value=0) as play:
+            score, games = engine.play_match_recorded(("btc:0", "btc:0"), rules=rules)
+
+        self.assertEqual(score, 0)
+        self.assertEqual(len(games), 2)
+        self.assertEqual([game["rules"] for game in games], [rules, rules])
+        self.assertEqual(play.call_count, 2)
+
     def test_play_callback_receives_captured_piece_and_winning_move_with_rules(self):
         rules = engine.load_rules(os.path.join(RULE_DIR, "rule1.json"))
         board = {(7, 7): (0, 0), (8, 8): (1, 2)}

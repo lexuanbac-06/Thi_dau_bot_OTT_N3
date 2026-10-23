@@ -4,11 +4,6 @@ import {
   FileSpreadsheet, Gauge, RefreshCw, Server, ShieldCheck,
   Swords, Trophy, Upload, Users, UserX, RotateCcw,
 } from 'lucide-react';
-import rule1 from '../../rules/rule1.json';
-import rule2 from '../../rules/rule2.json';
-import rule3 from '../../rules/rule3.json';
-import rule4 from '../../rules/rule4.json';
-import rule5 from '../../rules/rule5.json';
 import { getScoringAdminMetrics, getScoringBenchmarks, postScoringAdmin, probeScoringServer, supabase, uploadScoringBenchmark, type ScoringBenchmark } from './api';
 import { BarList, ColumnChart } from './Charts';
 
@@ -31,13 +26,12 @@ type MonitorSnapshot = {
   replay_storage: { objects: number; bytes: number; failed: number };
 };
 
-const ROUND_RULE_PRESETS = [
-  { key: 'rule1', label: 'Luật 1 — Bàn cờ cơ bản', rules: rule1 },
-  { key: 'rule2', label: 'Luật 2 — Thêm tường', rules: rule2 },
-  { key: 'rule3', label: 'Luật 3 — Thêm vùng bảo vệ', rules: rule3 },
-  { key: 'rule4', label: 'Luật 4 — Thêm cổng dịch chuyển', rules: rule4 },
-  { key: 'rule5', label: 'Luật 5 — Thêm ô đổi quân', rules: rule5 },
-] as const;
+const ROUND_RULE_LABELS: Record<string, string> = {
+  rule1: 'Luật 1 — Bàn cờ cơ bản',
+  rule2: 'Luật 2 — Thêm tường',
+  rule3: 'Luật 3 — Thêm vùng bảo vệ',
+  rule4: 'Luật 4 — Thêm cổng dịch chuyển',
+};
 
 const sectionForRoute = (route: string): Section => route === '/admin/server' ? 'server'
   : route === '/admin/observation' ? 'observation'
@@ -99,7 +93,6 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
   const [day, setDay] = useState(1);
   const [tournamentActionBusy, setTournamentActionBusy] = useState(false);
   const [finalistsCsvBusy, setFinalistsCsvBusy] = useState(false);
-  const [savingRuleRound, setSavingRuleRound] = useState<number | null>(null);
   const [resetBusy, setResetBusy] = useState(false);
   const [replayCleanupBusy, setReplayCleanupBusy] = useState(false);
   const [eliminatedContestants, setEliminatedContestants] = useState<Array<Record<string, any>>>([]);
@@ -278,31 +271,6 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
       await refresh(false);
     } catch (err: any) { setError(err?.message || 'Không thực hiện được thao tác điều hành.'); }
     finally { setTournamentActionBusy(false); }
-  }
-
-  async function setRoundRule(roundNumber: number, ruleKey: string) {
-    const preset = ROUND_RULE_PRESETS.find((item) => item.key === ruleKey);
-    if (!preset) {
-      setError(`Preset luật không hợp lệ: ${ruleKey}`);
-      return;
-    }
-    setSavingRuleRound(roundNumber);
-    setError('');
-    setMessage('');
-    try {
-      const { error: rpcError } = await supabase.rpc('admin_set_round_game_rules', {
-        p_rnd: roundNumber,
-        p_rule_key: preset.key,
-        p_rules: preset.rules,
-      });
-      if (rpcError) throw describeSupabaseError(rpcError, 'Không lưu được luật vòng thi');
-      setMessage(`Đã áp dụng ${preset.label} cho vòng ${roundNumber}.`);
-      await refresh(false);
-    } catch (err: any) {
-      setError(err?.message || 'Không lưu được luật vòng thi.');
-    } finally {
-      setSavingRuleRound(null);
-    }
   }
 
   async function setSubmissionGate(nextAccepting: boolean) {
@@ -499,24 +467,15 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
       </section>
       <section className="panel">
         <SectionHeading icon={Swords} eyebrow="LUẬT BÀN CỜ THEO VÒNG" title="Chọn bộ luật thi đấu" />
-        <p className="muted server-note">Luật được lưu thành snapshot cho từng vòng và dùng trong các trận của vòng đó. Chỉ có thể đổi luật trước khi vòng bắt đầu; vòng đang thi và các vòng đã qua được khóa.</p>
+        <p className="muted server-note">Preset luật được gán tự động theo thứ tự vòng đấu và dùng thống nhất cho các trận trong vòng.</p>
         <div className="table-scroll">
           <table>
-            <thead><tr><th>Vòng</th><th>Luật hiện tại</th><th>Chọn luật</th></tr></thead>
+            <thead><tr><th>Vòng</th><th>Luật áp dụng</th></tr></thead>
             <tbody>{(snapshot?.round_config || []).filter((config) => Number(config.rnd) >= 1 && Number(config.rnd) <= 4).map((config) => {
               const roundNumber = Number(config.rnd);
-              const locked = phase === 'done' || (phase === 'round' && roundNumber <= round);
               return <tr key={roundNumber}>
                 <td>Vòng {roundNumber}</td>
-                <td>{ROUND_RULE_PRESETS.find((preset) => preset.key === config.game_rule_key)?.label || 'Luật 1 — Bàn cờ cơ bản'}</td>
-                <td><select
-                  aria-label={`Luật cho vòng ${roundNumber}`}
-                  value={String(config.game_rule_key || 'rule1')}
-                  disabled={locked || savingRuleRound !== null}
-                  onChange={(event) => void setRoundRule(roundNumber, event.target.value)}
-                >
-                  {ROUND_RULE_PRESETS.map((preset) => <option key={preset.key} value={preset.key}>{preset.label}</option>)}
-                </select></td>
+                <td>{ROUND_RULE_LABELS[String(config.game_rule_key)] || 'Chưa cấu hình — chạy migration 0018'}</td>
               </tr>;
             })}</tbody>
           </table>

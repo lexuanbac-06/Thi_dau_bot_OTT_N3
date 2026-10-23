@@ -66,6 +66,11 @@ type GameMove = [number, [number, number, number, number]];
 type Game = {
   players: ['a' | 'b', 'a' | 'b'];
   moves: GameMove[];
+  rules?: {
+    board: {
+      piece_changers: Array<{ position: [number, number] }>;
+    };
+  };
 };
 type QueueInfo = { queue_size: number; max_workers: number; pending_db: number };
 type ApiResult<T> = { ok: boolean; error?: string } & T;
@@ -344,6 +349,7 @@ export default function FinalsApp() {
   const boardPieces = useMemo(() => {
     const game = currentGame;
     if (!game) return new Map<string, { icon: string; owner: 'a' | 'b' }>();
+    const changerPosition = game.rules?.board.piece_changers[0]?.position ?? [4, 4];
     const board = new Map<string, { icon: string; owner: 'a' | 'b' }>();
     for (let x = 0; x < 9; x += 1) {
       board.set(`${x},0`, { icon: PIECES[x % 3], owner: game.players[0] });
@@ -353,7 +359,12 @@ export default function FinalsApp() {
       const [x, y, nextX, nextY] = move;
       const piece = board.get(`${x},${y}`);
       board.delete(`${x},${y}`);
-      if (piece) board.set(`${nextX},${nextY}`, { ...piece, owner: game.players[player] });
+      if (piece) {
+        const entersChanger = nextX === changerPosition[0] && nextY === changerPosition[1];
+        const pieceIndex = PIECES.indexOf(piece.icon);
+        const changedIcon = entersChanger ? PIECES[[2, 0, 1][pieceIndex]] : piece.icon;
+        board.set(`${nextX},${nextY}`, { icon: changedIcon, owner: game.players[player] });
+      }
     }
     return board;
   }, [currentGame, currentMoves, step]);
@@ -795,10 +806,12 @@ function Board({ pieces, lastMove }: { pieces: Map<string, { icon: string; owner
           const piece = pieces.get(`${x},${y}`);
           const isGoal = (x === 8 && y === 8) || (x === 0 && y === 0);
           const isLast = lastMove?.[2] === x && lastMove?.[3] === y;
-          return <div className={`finals-square ${(x + y) % 2 ? 'is-dark' : ''} ${isGoal ? (x === 8 ? 'is-goal-a' : 'is-goal-b') : ''} ${isLast ? 'is-last' : ''}`} key={`${x}-${y}`} title={`${'abcdefghi'[x]}${y + 1}`}>
+          const isChanger = x === 4 && y === 4;
+          return <div className={`finals-square ${(x + y) % 2 ? 'is-dark' : ''} ${isGoal ? (x === 8 ? 'is-goal-a' : 'is-goal-b') : ''} ${isLast ? 'is-last' : ''}`} key={`${x}-${y}`} title={isChanger ? 'Ô đổi quân: Búa → Kéo → Bao → Búa khi quân đi vào' : `${'abcdefghi'[x]}${y + 1}`} style={isChanger ? { boxShadow: 'inset 0 0 0 3px #e4ad4f' } : undefined}>
             {x === 0 && <span className="finals-coordinate coordinate-row">{y + 1}</span>}
             {y === 0 && <span className="finals-coordinate coordinate-column">{'abcdefghi'[x]}</span>}
             {isGoal && <span className="finals-goal">{x === 8 ? 'ĐÍCH A' : 'ĐÍCH B'}</span>}
+            {isChanger && <span aria-hidden="true">↻</span>}
             {piece && <span className={`finals-piece piece-${piece.owner}`}>{piece.icon}</span>}
           </div>;
         }))}

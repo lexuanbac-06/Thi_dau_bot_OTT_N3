@@ -29,6 +29,9 @@ import engine as game_engine
 
 logger = logging.getLogger("finals.runner")
 
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+FINALS_RULES = game_engine.load_rules(os.path.join(REPO_ROOT, "rules", "rule5.json"))
+
 MAX_WORKERS = int(os.environ.get("FINALS_MAX_WORKERS", os.cpu_count() or 4))
 MAX_QUEUE_SIZE = int(os.environ.get("FINALS_QUEUE_SIZE", 200))
 
@@ -142,6 +145,7 @@ def _run_match(task: dict) -> None:
             (path_a, path_b),
             on_move=on_move_callback,
             delay=live_delay,
+            rules=FINALS_RULES,
         )
         elapsed = time.monotonic() - t0
 

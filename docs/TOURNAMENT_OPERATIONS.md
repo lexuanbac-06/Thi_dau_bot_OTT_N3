@@ -9,7 +9,7 @@ Tài liệu này ghi lại thể thức BTC đã cung cấp làm yêu cầu chu�
 - Những người đạt chuẩn được sắp theo điểm từ thấp đến cao, chia thành các dải điểm; từ mỗi dải phân bổ thí sinh rải đều qua 40 bảng để cân bằng sức mạnh. Ví dụ 2.000 người chia thành 50 dải, mỗi dải có khoảng 40 người và đóng góp người vào cả 40 bảng.
 - Web giải chính vận hành Vòng 1–4 online; sau Vòng 4, những người đạt top/vé vớt được chuyển sang ứng dụng chung kết riêng.
 - Cấu hình top và vé vớt được giữ theo luật cũ cho các vòng online: vòng 1: top 10/bảng + 40 vé vớt; vòng 2: top 8/bảng + 16 vé vớt; vòng 3: top 6/bảng + 8 vé vớt; vòng 4: top 4/bảng + 4 vé vớt. Chung kết nằm trong ứng dụng riêng, ngoài cấu hình vòng online.
-- Mỗi vòng online dùng một preset luật bàn cờ được BTC chọn trước khi vòng đó bắt đầu: vòng 1 cơ bản; các preset tiếp theo lần lượt bổ sung tường, vùng bảo vệ, cổng dịch chuyển và ô đổi loại quân. Các luật của preset được áp dụng trong engine chấm, state gửi cho bot và replay; có thể chọn preset cho từng vòng trong giao diện admin.
+- Bộ luật được gán theo thứ tự cố định: Vòng 1 cơ bản; Vòng 2 thêm tường; Vòng 3 thêm vùng bảo vệ; Vòng 4 thêm cổng dịch chuyển; Vòng 5 (chung kết offline) thêm ô đổi loại quân. Engine áp dụng luật khi chấm, gửi luật trong state cho bot và lưu snapshot vào replay.
 
 ## Một tuần thi đấu
 
@@ -45,7 +45,7 @@ Vòng đầu vào dùng ba bot chuẩn trong `sample_bots/entry_bot0.py`–`entr
 
 ## Trạng thái triển khai
 
-Migration `0006_online_tournament_operations.sql` bổ sung sức chứa, luật vòng, ghép cặp/bye, xử vắng mặt, chốt bảng mỗi ngày, công bố trễ, điều kiện 4/6, vé vớt/chuyển vòng và bảng tạm admin. Migration `0017_separate_finals_and_export_qualifiers.sql` kết thúc cấu hình online ở Vòng 4 và cung cấp RPC chỉ dành cho admin/service role để xuất CSV finalist. Migration `0018_round_game_rules.sql` lưu snapshot luật cho từng vòng và cho phép admin đổi preset trước khi vòng bắt đầu. Scoring module áp dụng snapshot khi chạy trận qua Judge0 và lưu cùng dữ liệu replay. `tournament.py` nay chỉ đọc trạng thái Supabase; mã SQLite cũ và `data/sync.py` đã được đưa vào vùng backup/loại khỏi đường vận hành. SQLite riêng của ứng dụng chung kết là ngoại lệ chủ đích, dùng cho hoạt động offline tại điểm thi.
+Migration `0006_online_tournament_operations.sql` bổ sung sức chứa, luật vòng, ghép cặp/bye, xử vắng mặt, chốt bảng mỗi ngày, công bố trễ, điều kiện 4/6, vé vớt/chuyển vòng và bảng tạm admin. Migration `0017_separate_finals_and_export_qualifiers.sql` kết thúc cấu hình online ở Vòng 4 và cung cấp RPC chỉ dành cho admin/service role để xuất CSV finalist. Migration `0018_round_game_rules.sql` lưu snapshot luật cố định theo thứ tự cho các vòng online 1–4. Scoring module áp dụng snapshot khi chạy trận qua Judge0 và lưu cùng dữ liệu replay. Vòng 5 dùng preset rule5 trực tiếp trong engine ứng dụng chung kết offline. `tournament.py` nay chỉ đọc trạng thái Supabase; mã SQLite cũ và `data/sync.py` đã được đưa vào vùng backup/loại khỏi đường vận hành. SQLite riêng của ứng dụng chung kết là ngoại lệ chủ đích, dùng cho hoạt động offline tại điểm thi.
 
 **Cần áp dụng và kiểm chứng migrations theo thứ tự, bao gồm `0018`, trên project Supabase trước khi chạy giải.** Chưa thể xác nhận SQL đã chạy trên project thật từ workspace. Chỉ các vòng 1–4 online được tạo; chung kết chạy tại ứng dụng riêng.
 

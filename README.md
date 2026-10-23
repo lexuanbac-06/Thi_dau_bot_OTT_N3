@@ -18,7 +18,7 @@
 - Ngày 7 yêu cầu đã nộp ít nhất 4/6 ngày đầu. Top và vé vớt: V1 `10+40`, V2 `8+16`, V3 `6+8`, V4 `4+4`.
 - Bảng tạm và tiến độ đầy đủ chỉ dành cho admin. Thí sinh thấy đối thủ của mình; BXH công khai sau thời điểm công bố ngày hôm sau.
 - Web giải chính kết thúc sau Vòng 4. Danh sách top/vé vớt Vòng 4 được xuất CSV rồi import vào ứng dụng chung kết offline; không có Vòng 5 trong cấu hình Supabase của giải online.
-- Mỗi vòng online có preset luật bàn cờ riêng, BTC chọn trước khi vòng bắt đầu: Vòng 1 cơ bản; các preset kế tiếp lần lượt thêm tường, vùng bảo vệ, cổng dịch chuyển và ô đổi quân.
+- Bộ luật được gán theo thứ tự cố định: Vòng 1 cơ bản; Vòng 2 thêm tường; Vòng 3 thêm vùng bảo vệ; Vòng 4 thêm cổng dịch chuyển; Vòng 5 (chung kết offline) thêm ô đổi quân.
 
 Chi tiết quy tắc và ngoại lệ: [docs/TOURNAMENT_OPERATIONS.md](docs/TOURNAMENT_OPERATIONS.md).
 
@@ -36,7 +36,7 @@ Mở `http://localhost:9000/` trên máy chủ hoặc `http://<LAN-IP>:9000/` t�
 
 ## Triển khai schema Supabase
 
-Chạy toàn bộ migration trong `data/supabase/migrations` theo thứ tự số, kết thúc bằng `0018_round_game_rules.sql`. Migration `0017` bỏ cấu hình vòng 5 khỏi giải online và mở RPC quản trị để xuất danh sách đủ điều kiện chung kết sau khi Vòng 4 hoàn tất. Migration `0018` lưu bộ luật theo vòng và mở lựa chọn preset trong admin. Hướng dẫn biến môi trường: [data/SUPABASE_SETUP.md](data/SUPABASE_SETUP.md).
+Chạy toàn bộ migration trong `data/supabase/migrations` theo thứ tự số, kết thúc bằng `0018_round_game_rules.sql`. Migration `0017` bỏ cấu hình vòng 5 khỏi giải online và mở RPC quản trị để xuất danh sách đủ điều kiện chung kết sau khi Vòng 4 hoàn tất. Migration `0018` lưu bộ luật cố định theo vòng 1–4; chung kết offline dùng luật 5. Hướng dẫn biến môi trường: [data/SUPABASE_SETUP.md](data/SUPABASE_SETUP.md).
 
 ### Chuẩn bị chung kết offline
 
@@ -47,6 +47,8 @@ Chạy toàn bộ migration trong `data/supabase/migrations` theo thứ tự s�
 5. Trước ngày thi, dừng dịch vụ rồi sao lưu `finals/finals.db` và `snaps/finals/`; kiểm thử đăng nhập, tạo/chạy trận, feed trực tiếp và bảng xếp hạng khi đã ngắt WAN. Chỉ vòng online 1–4 và xuất CSV cần kết nối Supabase/Internet.
 
 Import lại cùng roster sẽ cấp mật khẩu mới cho các tài khoản có trong file, vô hiệu hóa mật khẩu cũ. Chỉ thực hiện khi cần và phân phối lại credential CSV.
+
+Chung kết offline (Vòng 5) luôn dùng preset Luật 5, bao gồm các luật đã có ở Vòng 2–4 và ô đổi quân ở giữa bàn.
 
 ## Chạy dịch vụ local
 
