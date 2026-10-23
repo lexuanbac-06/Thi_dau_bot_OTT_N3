@@ -22,6 +22,7 @@ Endpoints:
 
   -- Admin --
   POST /finals/admin/contestants   { username, password, display_name, student_id? }
+  POST /finals/admin/import-finalists  multipart CSV → offline usernames/passwords
   GET  /finals/admin/contestants   → danh sách sinh viên
   DELETE /finals/admin/contestants/<username>
   GET  /finals/admin/queue         → trạng thái hàng đợi
@@ -31,6 +32,8 @@ import logging
 import os
 import sys
 import secrets
+import csv
+import io
 
 from flask import Flask, request, jsonify, g, Response, send_from_directory
 import json
@@ -61,6 +64,7 @@ app = Flask(
 ADMIN_SECRET = os.environ.get("FINALS_ADMIN_SECRET", "")
 BOT_DIR = os.path.join(os.path.dirname(__file__), "..", "bots")
 FINALS_SNAP_DIR = os.path.join(os.path.dirname(__file__), "..", "snaps", "finals")
+app.config["MAX_CONTENT_LENGTH"] = 2 * 1024 * 1024
 
 
 # ---------------------------------------------------------------------------
@@ -155,6 +159,7 @@ def api_info():
                 "queue": "GET /finals/admin/queue",
                 "contestants": "GET /finals/admin/contestants",
                 "add_contestant": "POST /finals/admin/contestants",
+                "import_finalists": "POST /finals/admin/import-finalists",
                 "snapshot_bot": "POST /finals/admin/bots/snapshot",
             },
         },
@@ -331,6 +336,49 @@ def admin_list_contestants():
     if err:
         return err
     return jsonify(ok=True, contestants=auth.list_contestants()), 200
+
+
+@app.post("/finals/admin/import-finalists")
+def admin_import_finalists():
+    err = require_admin()
+    if err:
+        return err
+
+    upload = request.files.get("file")
+    if upload is None or not upload.filename or not upload.filename.lower().endswith(".csv"):
+        return jsonify(ok=False, error="Hãy chọn file CSV finalist đã xuất từ web giải chính."), 400
+
+    try:
+        content = upload.stream.read(2 * 1024 * 1024 + 1).decode("utf-8-sig")
+    except UnicodeDecodeError:
+        return jsonify(ok=False, error="File CSV phải được mã hóa UTF-8."), 400
+    if len(content.encode("utf-8")) > 2 * 1024 * 1024:
+        return jsonify(ok=False, error="File CSV vượt quá giới hạn 2 MB."), 413
+
+    try:
+        credentials = auth.import_finalists_csv(content)
+    except ValueError as exc:
+        return jsonify(ok=False, error=str(exc)), 409
+    credentials_csv = io.StringIO(newline="")
+    columns = ["username", "email", "advance_route", "final_rank", "offline_password"]
+    writer = csv.DictWriter(credentials_csv, fieldnames=columns, lineterminator="\r\n")
+    writer.writeheader()
+    for item in credentials:
+        writer.writerow({
+            "username": item["username"],
+            "email": item["email"],
+            "advance_route": item["advance_route"],
+            "final_rank": item["final_rank"],
+            "offline_password": item["password"],
+        })
+    response = jsonify(
+        ok=True,
+        imported=len(credentials),
+        credentials_csv=credentials_csv.getvalue(),
+        contestants=auth.list_contestants(),
+    )
+    response.headers["Cache-Control"] = "no-store, private"
+    return response, 200
 
 
 @app.delete("/finals/admin/contestants/<username>")

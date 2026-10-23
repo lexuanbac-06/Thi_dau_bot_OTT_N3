@@ -91,7 +91,7 @@ async function api<T>(
   const response = await fetch(path, {
     ...options,
     headers: {
-      ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { 'X-Finals-Token': token } : {}),
       ...(adminSecret ? { 'X-Admin-Secret': adminSecret } : {}),
       ...options.headers,
@@ -150,6 +150,8 @@ export default function FinalsApp() {
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [live, setLive] = useState(false);
+  const [finalistImportBusy, setFinalistImportBusy] = useState(false);
+  const [finalistCsvFile, setFinalistCsvFile] = useState<File | null>(null);
   const [feed, setFeed] = useState<string[]>([]);
   const [showAdminSecret, setShowAdminSecret] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
@@ -438,6 +440,42 @@ export default function FinalsApp() {
     }
   }
 
+  async function importFinalists() {
+    if (!finalistCsvFile) {
+      notify('Hãy chọn file CSV thí sinh chung kết.', true);
+      return;
+    }
+    if (!window.confirm(
+      'Tiếp tục nhập roster? Tài khoản trong file sẽ được cấp mật khẩu tạm mới; nếu đã tồn tại thì mật khẩu cũ sẽ bị vô hiệu hóa.',
+    )) return;
+
+    setFinalistImportBusy(true);
+    try {
+      const form = new FormData();
+      form.append('file', finalistCsvFile);
+      const data = await api<{ imported: number; credentials_csv: string; contestants: Contestant[] }>('/finals/admin/import-finalists', {
+        method: 'POST',
+        body: form,
+      }, adminSecret);
+      localStorage.setItem(ADMIN_KEY, adminSecret);
+      setContestants(data.contestants);
+      const blobUrl = URL.createObjectURL(new Blob([data.credentials_csv], { type: 'text/csv;charset=utf-8' }));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = 'finalist-offline-credentials.csv';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(blobUrl), 0);
+      setFinalistCsvFile(null);
+      notify(`Đã nhập ${data.imported} thí sinh. CSV mật khẩu tạm đã tải xuống; hãy phân phối an toàn.`);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Không thể nhập danh sách thí sinh chung kết.', true);
+    } finally {
+      setFinalistImportBusy(false);
+    }
+  }
+
   async function snapshotBot(username: string) {
     try {
       await api('/finals/admin/bots/snapshot', {
@@ -667,9 +705,9 @@ export default function FinalsApp() {
             {!user && (
               <div className="finals-login-banner">
                 <div className="finals-login-icon"><UserRound size={21} /></div>
-                <div className="finals-login-copy"><strong>Đăng nhập tài khoản thí sinh</strong><span>Đăng nhập để xác nhận thông tin tham gia chung kết.</span></div>
+                <div className="finals-login-copy"><strong>Đăng nhập tài khoản thí sinh</strong><span>Dùng username và mật khẩu tạm do ban tổ chức cấp riêng cho vòng chung kết offline.</span></div>
                 <form className="finals-login-form" onSubmit={(event) => void login(event)}>
-                  <input required autoComplete="username" value={loginForm.username} onChange={(event) => setLoginForm((form) => ({ ...form, username: event.target.value }))} placeholder="Tên đăng nhập" />
+                  <input required autoComplete="username" value={loginForm.username} onChange={(event) => setLoginForm((form) => ({ ...form, username: event.target.value }))} placeholder="Username" />
                   <input required autoComplete="current-password" type="password" value={loginForm.password} onChange={(event) => setLoginForm((form) => ({ ...form, password: event.target.value }))} placeholder="Mật khẩu" />
                   <button className="finals-button" disabled={busy}><LogIn size={15} /> Đăng nhập</button>
                 </form>
@@ -692,6 +730,12 @@ export default function FinalsApp() {
               <div className="finals-secret-copy"><strong>Kết nối quyền ban tổ chức</strong><span>Secret chỉ được lưu trong trình duyệt hiện tại.</span></div>
               <div className="finals-secret-input"><input aria-label="Admin secret" type={showAdminSecret ? 'text' : 'password'} value={adminSecret} onChange={(event) => setAdminSecret(event.target.value)} onBlur={() => adminSecret && localStorage.setItem(ADMIN_KEY, adminSecret)} placeholder="Nhập FINALS_ADMIN_SECRET" /><button aria-label={showAdminSecret ? 'Ẩn secret' : 'Hiện secret'} onClick={() => setShowAdminSecret((value) => !value)}>{showAdminSecret ? <EyeOff size={16} /> : <Eye size={16} />}</button></div>
               <button className="finals-button finals-button-ghost" onClick={() => { localStorage.setItem(ADMIN_KEY, adminSecret); void loadAdminData(); }}>Kết nối</button>
+            </section>
+            <section className="finals-panel finals-form-panel">
+              <div className="finals-panel-header"><div><Users size={17} /><strong>Nhập thí sinh từ giải online</strong></div><span className="finals-form-index">00</span></div>
+              <p className="finals-form-intro">Trên web giải chính, xuất CSV sau khi Vòng 4 kết thúc rồi nhập file này trước ngày thi. Mật khẩu tạm mới được tạo và tải xuống một lần; nhập lại sẽ đổi mật khẩu của các tài khoản trong file. Hãy bảo vệ và phân phối CSV mật khẩu riêng tư.</p>
+              <label>CSV finalist từ web giải chính<input type="file" accept=".csv,text/csv" onChange={(event) => setFinalistCsvFile(event.target.files?.[0] ?? null)} /></label>
+              <button className="finals-button finals-button-primary" disabled={finalistImportBusy || !adminSecret || !finalistCsvFile} onClick={() => void importFinalists()}><RefreshCw size={16} />{finalistImportBusy ? 'Đang nhập…' : 'Nhập danh sách và cấp mật khẩu offline'}</button>
             </section>
             <div className="finals-admin-grid">
               <section className="finals-panel finals-form-panel">

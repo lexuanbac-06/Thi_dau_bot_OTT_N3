@@ -17,7 +17,7 @@
 - Mỗi lượt: thắng `+1`, thua `-1`, hòa `0`; vắng bài lúc chốt ngày `-1`; bye `0`.
 - Ngày 7 yêu cầu đã nộp ít nhất 4/6 ngày đầu. Top và vé vớt: V1 `10+40`, V2 `8+16`, V3 `6+8`, V4 `4+4`.
 - Bảng tạm và tiến độ đầy đủ chỉ dành cho admin. Thí sinh thấy đối thủ của mình; BXH công khai sau thời điểm công bố ngày hôm sau.
-- Vòng 5 offline không được triển khai; hệ thống vận hành V1–V4 online.
+- Web giải chính kết thúc sau Vòng 4. Danh sách top/vé vớt Vòng 4 được xuất CSV rồi import vào ứng dụng chung kết offline; không có Vòng 5 trong cấu hình Supabase của giải online.
 
 Chi tiết quy tắc và ngoại lệ: [docs/TOURNAMENT_OPERATIONS.md](docs/TOURNAMENT_OPERATIONS.md).
 
@@ -31,11 +31,21 @@ npm.cmd --prefix frontend run build
 python -m finals.run_server
 ```
 
-Mở `http://localhost:9000/`. Backend chung kết dùng SQLite riêng; đây là dịch vụ độc lập, không thay đổi nguồn dữ liệu Supabase của giải đấu chính. Nếu chỉ cần build lại sau lần cài dependency đầu tiên, chạy `npm.cmd --prefix frontend run build`.
+Mở `http://localhost:9000/` trên máy chủ hoặc `http://<LAN-IP>:9000/` từ các máy trong mạng thi. Chung kết là ứng dụng độc lập: roster, tài khoản cục bộ, trận đấu và kết quả lưu trong SQLite; xử lý trận dùng game engine/bot trên máy chủ. Chung kết không gọi Supabase, Internet, Judge0 hay scoring module.
 
 ## Triển khai schema Supabase
 
-Chạy SQL Editor theo thứ tự `0001` → `0002` → `0003` → `0004` → `0005` → `0006` → `0007`. Migration `0004` đã được áp dụng trước; `0005`–`0007` cần chạy để dùng giao diện admin, điều hành giải và lịch sử/replay mới. Hướng dẫn biến môi trường: [data/SUPABASE_SETUP.md](data/SUPABASE_SETUP.md).
+Chạy toàn bộ migration trong `data/supabase/migrations` theo thứ tự số, kết thúc bằng `0017_separate_finals_and_export_qualifiers.sql`. Migration `0017` bỏ cấu hình vòng 5 khỏi giải online và mở RPC quản trị để xuất danh sách đủ điều kiện chung kết sau khi Vòng 4 hoàn tất. Hướng dẫn biến môi trường: [data/SUPABASE_SETUP.md](data/SUPABASE_SETUP.md).
+
+### Chuẩn bị chung kết offline
+
+1. Sau khi Vòng 4 hoàn tất, trên web giải chính dùng **Xuất CSV thí sinh chung kết**. Đây là bước cần Supabase; file roster không chứa mật khẩu.
+2. Chuyển file roster tới máy chủ chung kết bằng phương thức an toàn. Trước khi chạy, đặt `FINALS_ADMIN_SECRET` trên host và chỉ cấp secret cho BTC; chạy `python -m finals.run_server`, đăng nhập tab BTC, chọn CSV và nhập danh sách. Không cần cấu hình Supabase trên máy chung kết.
+3. Tải xuống `finalist-offline-credentials.csv` ngay sau khi import. Hệ thống cấp mật khẩu tạm riêng, ngẫu nhiên, chỉ lưu hash trong SQLite; phân phối từng mật khẩu cho đúng thí sinh qua kênh riêng và bảo vệ/xóa bản CSV mật khẩu sau khi phân phối.
+4. Cho thí sinh truy cập `http://<LAN-IP>:9000/` trong mạng LAN và đăng nhập bằng username cùng mật khẩu tạm. Mở cổng 9000 chỉ trong LAN/firewall của điểm thi.
+5. Trước ngày thi, dừng dịch vụ rồi sao lưu `finals/finals.db` và `snaps/finals/`; kiểm thử đăng nhập, tạo/chạy trận, feed trực tiếp và bảng xếp hạng khi đã ngắt WAN. Chỉ vòng online 1–4 và xuất CSV cần kết nối Supabase/Internet.
+
+Import lại cùng roster sẽ cấp mật khẩu mới cho các tài khoản có trong file, vô hiệu hóa mật khẩu cũ. Chỉ thực hiện khi cần và phân phối lại credential CSV.
 
 ## Chạy dịch vụ local
 

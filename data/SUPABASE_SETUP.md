@@ -1,6 +1,6 @@
 # Cấu hình Supabase
 
-> **Trạng thái theo ghi chú triển khai trước:** migration `0004` đã được áp dụng và replay đã chạy thử. Trạng thái thực tế của project Supabase chưa xác nhận được trong phiên này. Các hàm quản trị, reset, cổng nhận bài, lượt vòng loại và tie-break mới cần migrations `0005`–`0013` chạy theo đúng thứ tự bên dưới; các migration `0008`–`0013` mới có trong workspace và chưa được áp dụng từ phiên làm việc này.
+> **Lưu ý triển khai:** phải áp dụng toàn bộ migration có trong workspace theo thứ tự, bao gồm `0017_separate_finals_and_export_qualifiers.sql`. Trạng thái migrations đã chạy trên project Supabase cần được BTC xác nhận trong Dashboard.
 
 ## 1. Tạo project
 1. Vào https://supabase.com → **New project** (chọn region gần VN: Singapore).
@@ -8,7 +8,7 @@
 
 ## 2. Chạy schema
 **Dashboard → SQL Editor → New query**, chạy tuần tự từng migration:
-`0001_schema.sql` → `0002_scoring_jobs.sql` → `0003_immediate_scoring_and_admin_phases.sql` → `0004_replay_storage_and_web_api.sql` → `0005_admin_monitoring_and_round_submissions.sql` → `0006_online_tournament_operations.sql` → `0007_submission_history_and_replay_visibility.sql` → `0008_admin_tournament_controls.sql` → `0009_fix_prepare_swiss_round_grp_ambiguity.sql` → `0010_handle_single_contestant_bye.sql` → `0011_safe_tournament_reset_and_resume.sql` → `0012_fix_scoring_and_submission_controls.sql` → `0013_entry_attempts_and_daily_tiebreak.sql` → `0014_fix_admin_eliminated_email_type.sql` → `0015_durable_scoring_queue.sql` → `0016_queue_claim_only_ready_jobs.sql`.
+`0001_schema.sql` → `0002_scoring_jobs.sql` → `0003_immediate_scoring_and_admin_phases.sql` → `0004_replay_storage_and_web_api.sql` → `0005_admin_monitoring_and_round_submissions.sql` → `0006_online_tournament_operations.sql` → `0007_submission_history_and_replay_visibility.sql` → `0008_admin_tournament_controls.sql` → `0009_fix_prepare_swiss_round_grp_ambiguity.sql` → `0010_handle_single_contestant_bye.sql` → `0011_safe_tournament_reset_and_resume.sql` → `0012_fix_scoring_and_submission_controls.sql` → `0013_entry_attempts_and_daily_tiebreak.sql` → `0014_fix_admin_eliminated_email_type.sql` → `0015_durable_scoring_queue.sql` → `0016_queue_claim_only_ready_jobs.sql` → `0017_separate_finals_and_export_qualifiers.sql`.
 Không chạy `0004` trước các migration tạo `matches` và `scoring_jobs`.
 
 ## 3. Cấu hình Auth
@@ -68,7 +68,8 @@ Frontend hiện gọi RPC/Storage với anon key + JWT; submit được gửi tr
 - **Vercel** (Root Directory `frontend`, Build `npm run build`, Output `dist`): đặt `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SCORING_MODULE_URL` tùy chọn. Không còn `VITE_API_URL`.
 - **Máy quản trị**: đặt `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` trong môi trường local rồi chạy `admin_cli_service` khi cần tạo/import admin. Không đưa service-role key vào frontend.
 - **Máy chấm tại chỗ**: đặt `OTT_SCORING_CORS_ORIGINS=https://<domain-vercel>`, chạy module trên `8110`, giữ Judge0 riêng ở `2358`, và cấu hình Tunnel hostname HTTPS trỏ tới `8110`. Không đặt secret máy chấm vào Vercel.
+- **Máy chủ chung kết riêng**: không cần cấu hình Supabase. Web chính dùng Supabase để xuất roster CSV sau Vòng 4; máy chung kết import CSV cục bộ và cấp mật khẩu tạm riêng.
 - Trong Supabase Auth → URL Configuration, thêm domain Vercel vào Site URL/Redirect URLs.
 - URL máy chấm do người dùng nhập và lưu vào trình duyệt, hoặc URL admin lưu ở Supabase, phải truy cập được từ trình duyệt thí sinh. `localhost` trên máy ban tổ chức không dùng được với người xem từ xa.
 
-Các vòng 1–4 online vận hành qua Supabase RPC và scoring module. Vòng 5 offline chưa được triển khai; website cần Internet.
+Các vòng 1–4 online vận hành qua Supabase RPC và scoring module. Chung kết offline là ứng dụng riêng: chỉ xuất roster trên web chính cần Supabase; tại điểm thi, đăng nhập, chạy trận và đọc kết quả đều hoạt động qua Flask + SQLite trên LAN, không phụ thuộc Internet, Supabase, Judge0 hoặc scoring module. Mật khẩu chung kết là mật khẩu tạm mới, không phải mật khẩu Supabase.

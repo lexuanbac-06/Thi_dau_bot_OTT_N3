@@ -51,4 +51,6 @@ Nếu module chưa nhận job trong 10 giây, frontend đánh dấu dispatch th�
 
 ## Giới hạn hiện tại
 
-Đây là đường chạy local cho luồng Supabase và các vòng online. Trước khi thử điều hành, cần áp dụng migration `0005` và `0006`. Module scoring dùng Supabase làm nguồn dữ liệu, điều phối các lượt ghép và Judge0; vòng offline chưa được cài. Không mở port `8110` trực tiếp ra Internet. Trình duyệt Vercel cần HTTPS Tunnel tới module; Vite local có thể gọi địa chỉ local được CORS cho phép. Không còn FastAPI port `8000`; các thao tác admin account chạy bằng `admin_cli_service`.
+Đây là đường chạy local cho luồng Supabase và các vòng online. Trước khi thử điều hành, hãy áp dụng toàn bộ migrations theo [hướng dẫn Supabase](../../data/SUPABASE_SETUP.md), bao gồm `0017_separate_finals_and_export_qualifiers.sql`. Module scoring dùng Supabase làm nguồn dữ liệu, điều phối các lượt ghép và Judge0; vòng chung kết chạy trên ứng dụng riêng. Không mở port `8110` trực tiếp ra Internet. Trình duyệt Vercel cần HTTPS Tunnel tới module; Vite local có thể gọi địa chỉ local được CORS cho phép. Không còn FastAPI port `8000`; các thao tác admin account chạy bằng `admin_cli_service`.
+
+Lưu ý: hướng dẫn local ở đây chỉ phục vụ các vòng online và cần Supabase/Judge0. Chung kết tại điểm thi có đường chạy độc lập; tham khảo mục **Chuẩn bị chung kết offline** trong [README](../../README.md). Không dùng hay khởi động scoring module/Judge0 để vận hành chung kết.

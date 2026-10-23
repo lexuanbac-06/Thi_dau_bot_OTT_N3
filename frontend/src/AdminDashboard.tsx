@@ -85,6 +85,7 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
   const [round, setRound] = useState(1);
   const [day, setDay] = useState(1);
   const [tournamentActionBusy, setTournamentActionBusy] = useState(false);
+  const [finalistsCsvBusy, setFinalistsCsvBusy] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
   const [replayCleanupBusy, setReplayCleanupBusy] = useState(false);
   const [eliminatedContestants, setEliminatedContestants] = useState<Array<Record<string, any>>>([]);
@@ -378,6 +379,34 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
     anchor.click(); URL.revokeObjectURL(url);
   }
 
+  async function exportFinalists() {
+    setFinalistsCsvBusy(true);
+    setError('');
+    setMessage('');
+    try {
+      const { data, error: rpcError } = await supabase.rpc('admin_list_finalists_for_finals');
+      if (rpcError) throw rpcError;
+      const rows = (data || []) as Array<Record<string, unknown>>;
+      if (!rows.length) throw new Error('Chưa có danh sách thí sinh đủ điều kiện chung kết.');
+      const columns = ['user_id', 'username', 'email', 'advance_route', 'final_rank', 'avg_rank_pct'];
+      const csv = [
+        columns.join(','),
+        ...rows.map((row) => columns.map((key) => `"${String(row[key] ?? '').replaceAll('"', '""')}"`).join(',')),
+      ].join('\r\n');
+      const url = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }));
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = 'finalists-round-4.csv';
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setMessage(`Đã xuất danh sách ${rows.length} thí sinh chung kết. CSV không chứa mật khẩu; máy chung kết sẽ cấp mật khẩu tạm riêng khi BTC import danh sách.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không thể xuất danh sách chung kết.');
+    } finally {
+      setFinalistsCsvBusy(false);
+    }
+  }
+
   return <div className="admin-dashboard-view" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
     <nav className="admin-section-nav" aria-label="Menu quản trị">
       {[
@@ -418,6 +447,7 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
         <div className="phase-controls">
           {phase !== 'done' && <button className={accepting ? 'secondary' : 'primary'} disabled={tournamentActionBusy} onClick={() => void setSubmissionGate(!accepting)}>{accepting ? 'Đóng cổng nhận bài' : 'Mở cổng nhận bài'}</button>}
           {phase === 'entry' && <button className="primary" disabled={tournamentActionBusy || !scoringUrl} onClick={() => void runTournamentAction('close-entry', undefined, 'Đã chốt đầu vào và chia thí sinh vào 40 bảng.')}>{tournamentActionBusy ? 'Đang xử lý…' : 'Chốt đầu vào & chia bảng'}</button>}
+          {phase === 'done' && round === 4 && <button className="primary" disabled={finalistsCsvBusy} onClick={() => void exportFinalists()}><FileSpreadsheet size={16} />{finalistsCsvBusy ? 'Đang xuất danh sách…' : 'Xuất CSV thí sinh chung kết'}</button>}
           {phase === 'round' && round <= 4 && snapshot?.days.find((item) => item.rnd === round && item.day === day)?.state === 'open' && <button className="primary" disabled={tournamentActionBusy || !scoringUrl} onClick={() => void runTournamentAction('close-day', undefined, 'Đã chốt ngày; máy chấm đang xử lý các lượt đấu.')}>{tournamentActionBusy ? 'Đang xử lý…' : 'Chốt ngày & xử lý lượt còn lại'}</button>}
           {phase === 'round' && round <= 4 && snapshot?.days.find((item) => item.rnd === round && item.day === day)?.state === 'grading' && <button className="primary" disabled={tournamentActionBusy || !scoringUrl} onClick={() => void runTournamentAction('resume-day', { round, day }, 'Đã yêu cầu tiếp tục chấm ngày.')}>{tournamentActionBusy ? 'Đang xử lý…' : 'Tiếp tục chấm ngày'}</button>}
           {phase === 'round' && round <= 4 && snapshot?.days.find((item) => item.rnd === round && item.day === day)?.state === 'graded' && day < 7 && <button className="primary" disabled={tournamentActionBusy || !scoringUrl} onClick={() => void runTournamentAction('open-day', { round, day: day + 1 }, `Đã mở ngày ${day + 1} của vòng ${round}.`)}>Mở ngày {day + 1}</button>}
@@ -426,7 +456,7 @@ export default function AdminDashboard({ route, navigate }: { route: string; nav
         </div>
         <p className="muted server-note">Reset giữ tài khoản, cấu hình giải và URL máy chấm; xóa dữ liệu thi/replay, gỡ trạng thái loại, đặt mọi thí sinh về đầu vào ngày 0. Nếu lượt chấm hoặc trận còn đang chạy, reset sẽ bị từ chối để tránh xóa dữ liệu giữa chừng; chờ hoàn tất rồi thử lại. Không thể hoàn tác.</p>
         {!scoringUrl && <p className="muted server-note">Trước khi điều hành, cấu hình địa chỉ máy chấm trong mục “Quản trị máy chấm”.</p>}
-        {phase === 'round' && round === 5 && <p className="muted server-note">Vòng thứ năm thi offline chưa được cài đặt. Hệ thống này chỉ vận hành các vòng online.</p>}
+        {phase === 'done' && round === 4 && <p className="muted server-note">Các vòng online đã kết thúc. Xuất CSV này để chuyển danh sách sang ứng dụng chung kết offline; máy chung kết sẽ cấp mật khẩu tạm mới khi BTC import. CSV chỉ chứa thông tin định danh và kết quả, không có mật khẩu.</p>}
       </section>
       <EntrantsTable entrants={snapshot?.entrants || []} />
       <section className="panel">

@@ -50,10 +50,10 @@ drop trigger if exists profiles_capacity_guard on public.profiles;
 create trigger profiles_capacity_guard before insert on public.profiles
 for each row execute function public.enforce_tournament_capacity();
 
--- Define the five week formats. Week five is offline and intentionally not operable by this online service.
+-- Define the four online tournament rounds. The separate finals app is not a round here.
 insert into public.round_config(rnd,num_groups,top_n,wildcard_n,days,min_days,matches_per_day,is_offline)
 values (1,40,10,40,7,4,7,false),(2,16,8,16,7,4,7,false),(3,8,6,8,7,4,7,false),
-       (4,4,4,4,7,4,7,false),(5,1,1,0,7,4,7,true)
+       (4,4,4,4,7,4,7,false)
 on conflict (rnd) do update set num_groups=excluded.num_groups,top_n=excluded.top_n,
   wildcard_n=excluded.wildcard_n,days=excluded.days,min_days=excluded.min_days,
   matches_per_day=excluded.matches_per_day,is_offline=excluded.is_offline;

@@ -152,7 +152,7 @@ Phần checklist lịch sử phía trên phản ánh trạng thái trước khi 
 - Scoring module chạy cặp song song có giới hạn (`OTT_TOURNAMENT_MATCH_WORKERS`, mặc định 4), tự khởi động lại xử lý ngày hiện hành, hỗ trợ admin đóng/mở/resume ngày và tải replay lên Supabase Storage.
 - `tournament.py` chỉ còn CLI đọc trạng thái Supabase. Đường đồng bộ SQLite `data/sync.py` đã được archive khỏi đường chạy; tạo tài khoản trong `data/auth_service.py` không còn đồng bộ vào SQLite. Snapshot mã cũ ở `backup/legacy_sqlite/`.
 - Admin có thể xuất bảng tạm hiện tại thành CSV; dữ liệu này chỉ dành admin. Thí sinh chỉ nhận BXH theo RPC công bố sau thời điểm `publish_after`.
-- **Việc còn bắt buộc trước khi vận hành:** áp dụng 0005 và 0006 lên Supabase theo thứ tự, kiểm tra dữ liệu/schema hiện hữu và chạy một giải thử trên project riêng. Workspace không có kết nối DB để thực thi migration thật. Vòng 5 offline không nằm trong phạm vi và không được tự động tạo.
+- **Việc còn bắt buộc trước khi vận hành:** áp dụng toàn bộ migrations đến `0017_separate_finals_and_export_qualifiers.sql` lên Supabase theo thứ tự, kiểm tra dữ liệu/schema hiện hữu và chạy một giải thử trên project riêng. Workspace không có kết nối DB để thực thi migration thật. Online kết thúc sau vòng 4; finalist được xuất CSV để import vào ứng dụng chung kết offline. Máy chung kết cấp mật khẩu tạm cục bộ, không dùng Supabase Auth.
 
 Những file cũ trong phần checklist phía trên được giữ làm lịch sử; khi triển khai vận hành mới, ưu tiên tài liệu này cùng `docs/TOURNAMENT_OPERATIONS.md`.
 

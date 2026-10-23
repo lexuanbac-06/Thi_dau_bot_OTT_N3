@@ -1,0 +1,227 @@
+2026-10-20 21:46:44 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 21:56:50 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 21:56:50 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 21:56:50 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:00:18 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:00:18 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 22:00:18 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:00:18 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 22:00:18 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 22:00:18 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 22:00:18 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 22:00:18 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 22:00:50 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:00:50 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 22:00:50 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:00:50 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 22:00:50 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 22:00:50 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 22:00:50 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 22:00:50 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 22:00:58 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:00:58 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 22:00:58 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:00:58 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 22:00:58 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 22:00:58 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 22:00:58 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 22:00:58 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 22:01:23 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:01:23 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 22:01:23 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:01:23 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 22:01:23 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 22:01:23 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 22:01:23 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 22:01:23 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 22:01:33 ERROR   finals.app               [APP] Lỗi không bắt được: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\.venv\Lib\site-packages\flask\app.py", line 891, in dispatch_request
+    self.raise_routing_exception(req)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\.venv\Lib\site-packages\flask\app.py", line 500, in raise_routing_exception
+    raise request.routing_exception  # type: ignore[misc]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\.venv\Lib\site-packages\flask\ctx.py", line 362, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\.venv\Lib\site-packages\werkzeug\routing\map.py", line 629, in match
+    raise NotFound() from None
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+2026-10-20 22:01:33 ERROR   finals.app               [APP] Lỗi không bắt được: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+Traceback (most recent call last):
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\.venv\Lib\site-packages\flask\app.py", line 891, in dispatch_request
+    self.raise_routing_exception(req)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\.venv\Lib\site-packages\flask\app.py", line 500, in raise_routing_exception
+    raise request.routing_exception  # type: ignore[misc]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\.venv\Lib\site-packages\flask\ctx.py", line 362, in match_request
+    result = self.url_adapter.match(return_rule=True)  # type: ignore
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\.venv\Lib\site-packages\werkzeug\routing\map.py", line 629, in match
+    raise NotFound() from None
+werkzeug.exceptions.NotFound: 404 Not Found: The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.
+2026-10-20 22:02:33 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:02:55 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:02:55 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 22:02:55 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:02:56 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 22:02:56 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 22:02:56 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 22:02:56 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 22:02:56 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 22:06:12 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:07:48 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:07:48 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 22:07:48 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:07:49 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 22:07:49 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 22:07:49 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 22:07:49 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 22:07:49 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 22:10:40 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:10:41 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 22:10:41 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:10:41 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 22:10:41 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 22:10:41 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 22:10:41 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 22:10:41 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 22:21:07 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:21:07 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 22:21:07 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:21:08 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 22:21:08 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 22:21:08 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 22:21:08 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 22:21:08 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 22:40:40 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:40:40 ERROR   finals.app               [APP] Lỗi hệ thống: DB pool chưa được khởi tạo. Gọi db.init_pool() trước.
+Traceback (most recent call last):
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\.venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\.venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\finals\app.py", line 232, in get_match_replay
+    row = match_runner.get_match_replay(request_id)
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\finals\match_runner.py", line 273, in get_match_replay
+    row = db.fetchone(
+        """SELECT id, request_id, player_a, player_b, status,
+    ...<3 lines>...
+        (request_id,),
+    )
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\finals\db.py", line 151, in fetchone
+    with conn() as c:
+         ~~~~^^
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\finals\db.py", line 66, in __enter__
+    self._conn = get_conn()
+                 ~~~~~~~~^^
+  File "C:\lapTrinhMang\Thi_dau_bot_OTT\finals\db.py", line 53, in get_conn
+    raise RuntimeError("DB pool chưa được khởi tạo. Gọi db.init_pool() trước.")
+RuntimeError: DB pool chưa được khởi tạo. Gọi db.init_pool() trước.
+2026-10-20 22:40:45 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:40:45 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 22:40:45 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:40:45 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 22:40:45 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 22:40:45 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 22:40:45 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 22:40:45 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 22:40:54 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:40:54 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 22:40:54 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:40:54 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 22:40:54 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 22:40:54 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 22:40:54 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 22:40:54 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 22:40:54 INFO    finals.auth              [AUTH] Đăng ký thành công: bot_alpha (BOT_ALPHA)
+2026-10-20 22:40:55 INFO    finals.auth              [AUTH] Đăng ký thành công: bot_beta (BOT_BETA)
+2026-10-20 22:40:55 INFO    finals.runner            [RUNNER] Đã enqueue: bot_alpha vs bot_beta | request_id=demo-match-1 match_id=1 queue_size=1
+2026-10-20 22:40:55 INFO    finals.runner            [MATCH:demo-match-1] Bắt đầu: bot_alpha vs bot_beta
+2026-10-20 22:40:55 INFO    finals.runner            [MATCH:demo-match-1] Kết thúc: bot_alpha 1-0 bot_beta (0.4s)
+2026-10-20 22:40:55 DEBUG   finals.runner            [STANDINGS] Cập nhật: bot_alpha, bot_beta (score=1)
+2026-10-20 22:41:21 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:41:21 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 22:41:21 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:41:21 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 22:41:21 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 22:41:21 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 22:41:21 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 22:41:21 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 22:48:33 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:48:33 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 22:48:33 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:48:33 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 22:48:33 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 22:48:33 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 22:48:33 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 22:48:33 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 22:48:33 DEBUG   finals.live              [LIVE:test-match] Khách mới kết nối stream (tổng: 1)
+2026-10-20 22:48:33 DEBUG   finals.live              [LIVE:test-match] Khách đã ngắt kết nối
+2026-10-20 22:48:51 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:48:51 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 22:48:51 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:48:51 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 22:48:51 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 22:48:51 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 22:48:51 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 22:48:51 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 22:48:51 DEBUG   finals.live              [LIVE:test-live-stream-1] Khách mới kết nối stream (tổng: 1)
+2026-10-20 22:48:51 INFO    finals.runner            [RUNNER] Đã enqueue: bot_alpha vs bot_beta | request_id=test-live-stream-1 match_id=2 queue_size=1
+2026-10-20 22:48:51 INFO    finals.runner            [MATCH:test-live-stream-1] Bắt đầu: bot_alpha vs bot_beta (live_delay=0.02s)
+2026-10-20 22:48:59 INFO    finals.runner            [MATCH:test-live-stream-1] Kết thúc: bot_alpha 1-0 bot_beta (7.8s)
+2026-10-20 22:48:59 DEBUG   finals.runner            [STANDINGS] Cập nhật: bot_alpha, bot_beta (score=1)
+2026-10-20 22:48:59 DEBUG   finals.live              [LIVE:test-live-stream-1] Khách đã ngắt kết nối
+2026-10-20 22:50:26 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 22:50:26 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 22:50:26 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 22:50:26 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 22:50:26 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 22:50:26 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 22:50:26 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 22:50:26 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 23:29:29 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 23:29:29 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 23:29:29 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 23:29:30 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 23:29:30 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 23:29:30 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 23:29:30 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 23:29:30 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 23:29:30 INFO    finals.app               [APP] Yêu cầu tạo trận: bot_alpha vs bot_beta (request_id=admin-auth-test-1)
+2026-10-20 23:29:30 INFO    finals.runner            [RUNNER] Đã enqueue: bot_alpha vs bot_beta | request_id=admin-auth-test-1 match_id=3 queue_size=1
+2026-10-20 23:29:30 INFO    finals.runner            [MATCH:admin-auth-test-1] Bắt đầu: bot_alpha vs bot_beta (live_delay=0.01s)
+2026-10-20 23:29:34 INFO    finals.runner            [MATCH:admin-auth-test-1] Kết thúc: bot_alpha 0-0 bot_beta (4.5s)
+2026-10-20 23:29:34 DEBUG   finals.runner            [STANDINGS] Cập nhật: bot_alpha, bot_beta (score=0)
+2026-10-20 23:57:53 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\lapTrinhMang\Thi_dau_bot_OTT\finals\logs\finals.log
+2026-10-20 23:57:53 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-20 23:57:53 INFO    finals.db                [DB] Kết nối PostgreSQL localhost:5432/finals user=postgres
+2026-10-20 23:57:54 INFO    finals.db                [DB] Pool khởi tạo thành công (min=2 max=20)
+2026-10-20 23:57:54 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-20 23:57:54 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-20 23:57:54 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-20 23:57:54 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-20 23:58:16 INFO    finals.app               [APP] Yêu cầu tạo trận: bot_beta vs bot_alpha (request_id=None)
+2026-10-20 23:58:16 INFO    finals.runner            [RUNNER] Đã enqueue: bot_beta vs bot_alpha | request_id=c4f55297-49f3-44c9-a012-e63e59da7ff4 match_id=4 queue_size=1
+2026-10-20 23:58:16 INFO    finals.runner            [MATCH:c4f55297-49f3-44c9-a012-e63e59da7ff4] Bắt đầu: bot_beta vs bot_alpha (live_delay=0.40s)
+2026-10-20 23:58:16 DEBUG   finals.live              [LIVE:c4f55297-49f3-44c9-a012-e63e59da7ff4] Khách mới kết nối stream (tổng: 1)
+2026-10-23 15:26:17 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\logs\finals.log
+2026-10-23 15:26:17 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-23 15:26:17 INFO    finals.db                [DB] SQLite sẵn sàng: C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\finals.db
+2026-10-23 15:26:17 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-23 15:26:17 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-23 15:26:17 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-23 15:26:17 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-23 15:31:12 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\logs\finals.log
+2026-10-23 15:31:43 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\logs\finals.log
+2026-10-23 15:31:43 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-23 15:31:43 INFO    finals.db                [DB] SQLite sẵn sàng: C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\finals.db
+2026-10-23 15:31:43 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-23 15:31:43 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-23 15:31:43 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-23 15:31:43 INFO    finals.app               [APP] Sẵn sàng.

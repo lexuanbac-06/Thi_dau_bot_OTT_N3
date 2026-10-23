@@ -67,6 +67,11 @@ CREATE TABLE IF NOT EXISTS contestants (
     password     TEXT NOT NULL,
     display_name TEXT NOT NULL,
     student_id   TEXT UNIQUE,
+    auth_user_id TEXT,
+    email        TEXT,
+    advance_route TEXT,
+    final_rank   INTEGER,
+    avg_rank_pct TEXT,
     created_at   TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -112,6 +117,28 @@ def migrate() -> None:
     """Chạy schema DDL (idempotent — an toàn khi gọi nhiều lần)."""
     with conn() as connection:
         connection.executescript(SCHEMA)
+        contestant_columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(contestants)")
+        }
+        if "auth_user_id" not in contestant_columns:
+            connection.execute("ALTER TABLE contestants ADD COLUMN auth_user_id TEXT")
+        if "email" not in contestant_columns:
+            connection.execute("ALTER TABLE contestants ADD COLUMN email TEXT")
+        if "advance_route" not in contestant_columns:
+            connection.execute("ALTER TABLE contestants ADD COLUMN advance_route TEXT")
+        if "final_rank" not in contestant_columns:
+            connection.execute("ALTER TABLE contestants ADD COLUMN final_rank INTEGER")
+        if "avg_rank_pct" not in contestant_columns:
+            connection.execute("ALTER TABLE contestants ADD COLUMN avg_rank_pct TEXT")
+        connection.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_contestants_auth_user_id "
+            "ON contestants(auth_user_id) WHERE auth_user_id IS NOT NULL"
+        )
+        connection.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_contestants_email "
+            "ON contestants(email) WHERE email IS NOT NULL"
+        )
+        connection.commit()
     logger.info("[DB] Schema migration hoàn tất.")
 
 

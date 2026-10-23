@@ -7,8 +7,8 @@ Tài liệu này ghi lại thể thức BTC đã cung cấp làm yêu cầu chu�
 - Tối đa 4.000 thí sinh đăng ký đầu vào.
 - Vòng loại đánh giá bot của thí sinh với các bot do BTC cung cấp. Thí sinh dưới ngưỡng bị loại trực tiếp.
 - Những người đạt chuẩn được sắp theo điểm từ thấp đến cao, chia thành các dải điểm; từ mỗi dải phân bổ thí sinh rải đều qua 40 bảng để cân bằng sức mạnh. Ví dụ 2.000 người chia thành 50 dải, mỗi dải có khoảng 40 người và đóng góp người vào cả 40 bảng.
-- Giải có 5 vòng trong 5 tuần. Tuần/vòng thứ năm thi offline tại địa điểm tổ chức, không có Internet.
-- Cấu hình top và vé vớt được giữ theo luật cũ: vòng 1: top 10/bảng + 40 vé vớt; vòng 2: top 8/bảng + 16 vé vớt; vòng 3: top 6/bảng + 8 vé vớt; vòng 4: top 4/bảng + 4 vé vớt; vòng 5: top 1.
+- Web giải chính vận hành Vòng 1–4 online; sau Vòng 4, những người đạt top/vé vớt được chuyển sang ứng dụng chung kết riêng.
+- Cấu hình top và vé vớt được giữ theo luật cũ cho các vòng online: vòng 1: top 10/bảng + 40 vé vớt; vòng 2: top 8/bảng + 16 vé vớt; vòng 3: top 6/bảng + 8 vé vớt; vòng 4: top 4/bảng + 4 vé vớt. Chung kết nằm trong ứng dụng riêng, ngoài cấu hình vòng online.
 
 ## Một tuần thi đấu
 
@@ -39,17 +39,18 @@ Vòng đầu vào dùng ba bot chuẩn trong `sample_bots/entry_bot0.py`–`entr
 - Thí sinh đọc hồ sơ, trạng thái của mình, đối thủ trong ngày và BXH đã công bố. RLS/RPC không cấp quyền đọc source bot hoặc BXH tạm trong ngày.
 - BTC đọc tiến độ và BXH tạm qua quyền admin, có thể xuất CSV để cập nhật bảng Google Sheet thủ công.
 - Không dùng SQLite trong quy trình vận hành giải đấu. SQLite/source cũ chỉ được giữ trong `backup/legacy_sqlite/` để rollback. Dữ liệu lịch sử và source/replay cần backup/migrate riêng trước khi xóa.
-- Tuần offline chưa thuộc phạm vi cài đặt hiện tại; website sẽ không hoạt động khi địa điểm không có Internet. Chỉ cài đặt các vòng online.
+- Chung kết được vận hành tại điểm thi bằng ứng dụng độc lập trên LAN, ngoài workflow online Supabase. Sau khi Vòng 4 kết thúc, BTC xuất CSV finalist trên web chính, chuyển file vào máy chung kết và import trước ngày thi. Máy chung kết cấp mật khẩu tạm ngẫu nhiên, xác thực cục bộ bằng SQLite/bcrypt. Chung kết không cần Internet, Supabase, Judge0 hay scoring module.
+- Mật khẩu tạm chỉ xuất hiện trong lần trả kết quả import và được tải về CSV riêng; phân phối bảo mật. Import lại sẽ xoay mật khẩu của tài khoản trong roster. Sao lưu SQLite và bot snapshots; kiểm thử toàn bộ luồng khi WAN đã ngắt.
 
 ## Trạng thái triển khai
 
-Migration `0006_online_tournament_operations.sql` bổ sung sức chứa, luật vòng, ghép cặp/bye, xử vắng mặt, chốt bảng mỗi ngày, công bố trễ, điều kiện 4/6, vé vớt/chuyển vòng và bảng tạm admin. Scoring module gọi các RPC này, chạy trận BO2 trên Judge0, lưu kết quả/replay lên Supabase và giới hạn song song. `tournament.py` nay chỉ đọc trạng thái Supabase; mã SQLite cũ và `data/sync.py` đã được đưa vào vùng backup/loại khỏi đường vận hành.
+Migration `0006_online_tournament_operations.sql` bổ sung sức chứa, luật vòng, ghép cặp/bye, xử vắng mặt, chốt bảng mỗi ngày, công bố trễ, điều kiện 4/6, vé vớt/chuyển vòng và bảng tạm admin. Migration `0017_separate_finals_and_export_qualifiers.sql` kết thúc cấu hình online ở Vòng 4 và cung cấp RPC chỉ dành cho admin/service role để xuất CSV finalist. Scoring module gọi các RPC này, chạy trận BO2 trên Judge0, lưu kết quả/replay lên Supabase và giới hạn song song. `tournament.py` nay chỉ đọc trạng thái Supabase; mã SQLite cũ và `data/sync.py` đã được đưa vào vùng backup/loại khỏi đường vận hành. SQLite riêng của ứng dụng chung kết là ngoại lệ chủ đích, dùng cho hoạt động offline tại điểm thi.
 
-**Cần áp dụng và kiểm chứng migration `0005` và `0006` trên project Supabase trước khi chạy giải.** Chưa thể xác nhận SQL đã chạy trên project thật từ workspace. Chỉ các vòng 1–4 online được tạo; vòng 5 offline dừng ngoài phạm vi.
+**Cần áp dụng và kiểm chứng migrations theo thứ tự, bao gồm `0017`, trên project Supabase trước khi chạy giải.** Chưa thể xác nhận SQL đã chạy trên project thật từ workspace. Chỉ các vòng 1–4 online được tạo; chung kết chạy tại ứng dụng riêng.
 
 ## Điểm đã chốt
 
 1. Số lượt là 7: Trận 1 và Trận 2–7.
 2. Vắng mặt nhận `-1` (kể cả khi cả hai cùng vắng mặt); bye nhận `0`.
-3. Mức top/vé vớt giữ cấu hình cũ: V1 `10+40`, V2 `8+16`, V3 `6+8`, V4 `4+4`, V5 `top 1`.
-4. Không cài đặt vòng offline; website không hoạt động khi không có Internet. Phạm vi triển khai là các vòng online.
+3. Mức top/vé vớt của các vòng online: V1 `10+40`, V2 `8+16`, V3 `6+8`, V4 `4+4`. Chung kết offline là giải riêng, không còn cấu hình V5 trên web chính.
+4. Các vòng 1–4 thi online; riêng chung kết offline chạy bằng ứng dụng LAN tại điểm thi. Chỉ bước xuất roster sau Vòng 4 cần web/Supabase.
