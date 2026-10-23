@@ -1,6 +1,6 @@
 # Cấu hình Supabase
 
-> **Lưu ý triển khai:** phải áp dụng toàn bộ migration có trong workspace theo thứ tự, bao gồm `0017_separate_finals_and_export_qualifiers.sql`. Trạng thái migrations đã chạy trên project Supabase cần được BTC xác nhận trong Dashboard.
+> **Lưu ý triển khai:** phải áp dụng toàn bộ migration có trong workspace theo thứ tự, bao gồm `0017_separate_finals_and_export_qualifiers.sql` và `0018_round_game_rules.sql`. Trạng thái migrations đã chạy trên project Supabase cần được BTC xác nhận trong Dashboard.
 
 ## 1. Tạo project
 1. Vào https://supabase.com → **New project** (chọn region gần VN: Singapore).
@@ -8,7 +8,7 @@
 
 ## 2. Chạy schema
 **Dashboard → SQL Editor → New query**, chạy tuần tự từng migration:
-`0001_schema.sql` → `0002_scoring_jobs.sql` → `0003_immediate_scoring_and_admin_phases.sql` → `0004_replay_storage_and_web_api.sql` → `0005_admin_monitoring_and_round_submissions.sql` → `0006_online_tournament_operations.sql` → `0007_submission_history_and_replay_visibility.sql` → `0008_admin_tournament_controls.sql` → `0009_fix_prepare_swiss_round_grp_ambiguity.sql` → `0010_handle_single_contestant_bye.sql` → `0011_safe_tournament_reset_and_resume.sql` → `0012_fix_scoring_and_submission_controls.sql` → `0013_entry_attempts_and_daily_tiebreak.sql` → `0014_fix_admin_eliminated_email_type.sql` → `0015_durable_scoring_queue.sql` → `0016_queue_claim_only_ready_jobs.sql` → `0017_separate_finals_and_export_qualifiers.sql`.
+`0001_schema.sql` → `0002_scoring_jobs.sql` → `0003_immediate_scoring_and_admin_phases.sql` → `0004_replay_storage_and_web_api.sql` → `0005_admin_monitoring_and_round_submissions.sql` → `0006_online_tournament_operations.sql` → `0007_submission_history_and_replay_visibility.sql` → `0008_admin_tournament_controls.sql` → `0009_fix_prepare_swiss_round_grp_ambiguity.sql` → `0010_handle_single_contestant_bye.sql` → `0011_safe_tournament_reset_and_resume.sql` → `0012_fix_scoring_and_submission_controls.sql` → `0013_entry_attempts_and_daily_tiebreak.sql` → `0014_fix_admin_eliminated_email_type.sql` → `0015_durable_scoring_queue.sql` → `0016_queue_claim_only_ready_jobs.sql` → `0017_separate_finals_and_export_qualifiers.sql` → `0018_round_game_rules.sql`.
 Không chạy `0004` trước các migration tạo `matches` và `scoring_jobs`.
 
 ## 3. Cấu hình Auth
@@ -72,4 +72,4 @@ Frontend hiện gọi RPC/Storage với anon key + JWT; submit được gửi tr
 - Trong Supabase Auth → URL Configuration, thêm domain Vercel vào Site URL/Redirect URLs.
 - URL máy chấm do người dùng nhập và lưu vào trình duyệt, hoặc URL admin lưu ở Supabase, phải truy cập được từ trình duyệt thí sinh. `localhost` trên máy ban tổ chức không dùng được với người xem từ xa.
 
-Các vòng 1–4 online vận hành qua Supabase RPC và scoring module. Chung kết offline là ứng dụng riêng: chỉ xuất roster trên web chính cần Supabase; tại điểm thi, đăng nhập, chạy trận và đọc kết quả đều hoạt động qua Flask + SQLite trên LAN, không phụ thuộc Internet, Supabase, Judge0 hoặc scoring module. Mật khẩu chung kết là mật khẩu tạm mới, không phải mật khẩu Supabase.
+Các vòng 1–4 online vận hành qua Supabase RPC và scoring module. Sau migration `0018`, BTC chọn preset luật cho từng vòng trong trang admin trước khi vòng bắt đầu; scoring module dùng snapshot đó cho trận và replay. Chung kết offline là ứng dụng riêng: chỉ xuất roster trên web chính cần Supabase; tại điểm thi, đăng nhập, chạy trận và đọc kết quả đều hoạt động qua Flask + SQLite trên LAN, không phụ thuộc Internet, Supabase, Judge0 hoặc scoring module. Mật khẩu chung kết là mật khẩu tạm mới, không phải mật khẩu Supabase.

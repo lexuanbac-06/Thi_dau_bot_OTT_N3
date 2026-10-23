@@ -5,6 +5,7 @@ choose_move(state) or choose_best_move(state); the trusted parent harness keeps
 the process alive for one game and validates every returned move.
 """
 import base64
+import inspect
 import json
 import os
 import queue
@@ -18,6 +19,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
+from . import game_rules
 
 
 class Judge0Error(RuntimeError):
@@ -42,13 +45,28 @@ def _judge0_url(value=None):
     return raw.rstrip("/")
 
 
-def _runner_source(contestant, benchmark):
+def _runner_source(contestant, benchmark, rules=None):
     contestant_b64 = base64.b64encode(contestant).decode("ascii")
     benchmark_b64 = base64.b64encode(benchmark).decode("ascii")
+    normalized_rules = game_rules.normalize_rules(rules if rules is not None else {
+        "schema_version": 1,
+        "board": {
+            "width": 9,
+            "height": 9,
+            "walls": [],
+            "protection_zones": [],
+            "teleporters": [],
+            "piece_changers": [],
+        },
+    })
+    rules_b64 = base64.b64encode(
+        json.dumps(normalized_rules, separators=(",", ":")).encode("utf-8")
+    ).decode("ascii")
+    rules_source = inspect.getsource(game_rules)
     template = r"""import base64, json, os, queue, shutil, signal, subprocess, sys, tempfile, threading
 
-BEAT = {0: 2, 1: 0, 2: 1}
-DIRS = [(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if dx or dy]
+__RULE_ENGINE_SOURCE__
+RULES = normalize_rules(json.loads(base64.b64decode("__RULES__")))
 MAX_PLIES = 200
 CONTESTANT = base64.b64decode("__CONTESTANT__")
 BENCHMARK = base64.b64decode("__BENCHMARK__")
@@ -126,30 +144,6 @@ class ProcBot:
         try: self.process.wait(timeout=1)
         except Exception: pass
 
-def initial():
-    b = {}
-    for x in range(9):
-        b[(x, 0)] = (0, x % 3)
-        b[(x, 8)] = (1, x % 3)
-    return b
-
-def legal_moves(b, p):
-    out = []
-    for (x, y), (owner, kind) in b.items():
-        if owner != p: continue
-        for dx, dy in DIRS:
-            nx, ny = x + dx, y + dy
-            if not (0 <= nx < 9 and 0 <= ny < 9): continue
-            target = b.get((nx, ny))
-            if target is None or (target[0] != p and BEAT[kind] == target[1]):
-                out.append((x, y, nx, ny))
-    return out
-
-def encode(b, me, ply):
-    goal = (8, 8) if me == 0 else (0, 0)
-    return {"me": me, "ply": ply, "goal": list(goal),
-            "pieces": [[x, y, owner, kind] for (x, y), (owner, kind) in b.items()]}
-
 class MoveTimeout(Exception): pass
 def _alarm(_signum, _frame): raise MoveTimeout()
 
@@ -163,18 +157,18 @@ def play(user_code, sample_code, user_first, workdir):
     try:
         for ply in range(MAX_PLIES):
             p = ply % 2
-            legal = legal_moves(board, p)
+            legal = legal_moves(board, p, RULES)
             if not legal:
                 raw = -1 if p == 0 else 1
                 return (raw if user_first else -raw), moves, p == user_idx
-            move = bots[p].move(encode(board, p, ply), 3.0 if ply < 2 else 1.0)
+            move = bots[p].move(encode_state(board, p, ply, RULES), 3.0 if ply < 2 else 1.0)
             if move not in legal:
                 raw = -1 if p == 0 else 1
                 return (raw if user_first else -raw), moves, p == user_idx
             x, y, nx, ny = move
-            board[(nx, ny)] = board.pop((x, y))
+            board = apply_move(board, move, RULES)
             moves.append([p, list(move)])
-            if (nx, ny) == ((8, 8) if p == 0 else (0, 0)) or len({kind for (owner, kind) in board.values() if owner != p}) < 3:
+            if check_win(board, p, move, RULES):
                 raw = 1 if p == 0 else -1
                 return (raw if user_first else -raw), moves, False
         return 0, moves, False
@@ -188,13 +182,17 @@ try:
     for user_first in (True, False):
         result, moves, fault = play(CONTESTANT, BENCHMARK, user_first, workdir)
         results.append(result)
-        games.append({"players": ["a", "b"] if user_first else ["b", "a"], "result": result, "moves": moves, "fault": fault})
+        games.append({"players": ["a", "b"] if user_first else ["b", "a"], "result": result, "moves": moves, "fault": fault, "rules": RULES})
     shutil.rmtree(workdir, ignore_errors=True)
     print("OTT_RESULT:" + json.dumps({"match_score": sum(results), "games": games}, separators=(",", ":")))
 except BaseException as exc:
     print("OTT_ERROR:" + type(exc).__name__ + ":" + str(exc))
 """
-    return template.replace("__CONTESTANT__", contestant_b64).replace("__BENCHMARK__", benchmark_b64)
+    return (template
+            .replace("__RULE_ENGINE_SOURCE__", rules_source)
+            .replace("__RULES__", rules_b64)
+            .replace("__CONTESTANT__", contestant_b64)
+            .replace("__BENCHMARK__", benchmark_b64))
 
 
 def _judge0_request(base_url, path, method="GET", payload=None, timeout=20):
@@ -257,10 +255,17 @@ def judge0_status(base_url=None):
     }
 
 
-def run_match(contestant: bytes, benchmark: bytes, base_url=None, language_id=None, max_seconds=None):
+def run_match(
+    contestant: bytes,
+    benchmark: bytes,
+    base_url=None,
+    language_id=None,
+    max_seconds=None,
+    rules=None,
+):
     """Submit and poll a BO2 execution; return score and raw replay games."""
     base_url = _judge0_url(base_url)
-    source = _runner_source(contestant, benchmark)
+    source = _runner_source(contestant, benchmark, rules=rules)
     language_id = int(language_id or os.environ.get("OTT_JUDGE0_PYTHON_ID", "71"))
     cpu_seconds = float(os.environ.get("OTT_JUDGE0_CPU_SECONDS", "30"))
     max_seconds = float(max_seconds or os.environ.get("OTT_JUDGE0_MAX_SECONDS", "140"))

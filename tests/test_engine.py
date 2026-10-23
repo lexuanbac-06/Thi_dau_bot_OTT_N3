@@ -1,5 +1,6 @@
 import os
 import unittest
+from unittest.mock import patch
 
 import engine
 
@@ -180,6 +181,31 @@ class EngineReplayTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         self.assertEqual(received_rules, [rules, rules])
+
+    def test_play_callback_receives_captured_piece_and_winning_move_with_rules(self):
+        rules = engine.load_rules(os.path.join(RULE_DIR, "rule1.json"))
+        board = {(7, 7): (0, 0), (8, 8): (1, 2)}
+        observations = []
+
+        def winning_move(state):
+            return (7, 7, 8, 8)
+
+        def callback(ply, player, move, captured, is_win):
+            observations.append((ply, player, move, captured, is_win))
+
+        bot = engine.FuncBot(winning_move)
+        opponent = engine.FuncBot(lambda state: (0, 8, 0, 7))
+
+        with patch.object(engine, "initial", return_value=board):
+            result = engine.play(
+                [bot, opponent],
+                max_plies=1,
+                rules=rules,
+                on_move=callback,
+            )
+
+        self.assertEqual(result, 1)
+        self.assertEqual(observations, [(0, 0, (7, 7, 8, 8), (1, 2), True)])
 
     def test_builtin_bots_choose_legal_moves_with_custom_rules(self):
         rules = engine.load_rules(os.path.join(RULE_DIR, "rule5.json"))
