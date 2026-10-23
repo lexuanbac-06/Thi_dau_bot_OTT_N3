@@ -385,13 +385,7 @@ def grade_day():
         if day == DAYS:
             names = [n for n in names if cnt.get(n, 0) >= MIN_DAYS]
         names.sort(key=lambda n: (sum(hist[n]) / len(hist[n]) if n in hist else 0, seed[n]))
-        S[g] = dict(
-            order=names,
-            pts={n: engine.DAILY_STARTING_POINTS for n in names},
-            gs={n: 0 for n in names},
-            played=set(),
-            byes=set(),
-        )
+        S[g] = dict(order=names, pts={n: 0 for n in names}, gs={n: 0 for n in names}, played=set(), byes=set())
 
     total_matches = sum(len(st["order"]) // 2 for st in S.values()) * MATCHES
     q("delete from matches where rnd=? and day=?", (rnd, day))
@@ -440,11 +434,9 @@ def grade_day():
             def record_result(i, s, games=None):
                 nonlocal last_persist
                 g, a, b = todo[i]
-                score_delta = engine.match_score_delta(s, games or [], rules)
+                m = (s > 0) - (s < 0)
                 st = S[g]
-                st["pts"][a] += score_delta
-                st["pts"][b] -= score_delta
-                st["gs"][a] += s; st["gs"][b] -= s
+                st["pts"][a] += m; st["pts"][b] -= m; st["gs"][a] += s; st["gs"][b] -= s
                 st["played"].add(frozenset((a, b)))
                 pending_matches.append((rnd, day, rd + 1, a, b, s))
                 if games is not None:
@@ -603,34 +595,27 @@ def live_tournament_board():
             (rnd, DAYS),
         )
     }
-    scores = {}
-
-    def scores_for(name):
-        return scores.setdefault(name, {
-            "pts": engine.DAILY_STARTING_POINTS,
-            "gs": 0,
-            "matches_played": 0,
-        })
-
-    rules = round_rules_for_play(rnd)
-    for match in q(
-        """select m.a,m.b,m.s,r.games
-           from matches m
-           left join match_replays r
-             on r.rnd=m.rnd and r.day=m.day and r.rd=m.rd
-             and r.a=m.a and r.b=m.b
-           where m.rnd=? and m.day=?""",
-        (rnd, day),
-    ):
-        games = json.loads(match["games"]) if match["games"] else []
-        score_delta = engine.match_score_delta(match["s"], games, rules)
-        player_a, player_b = scores_for(match["a"]), scores_for(match["b"])
-        player_a["pts"] += score_delta
-        player_b["pts"] -= score_delta
-        player_a["gs"] += match["s"]
-        player_b["gs"] -= match["s"]
-        player_a["matches_played"] += 1
-        player_b["matches_played"] += 1
+    scores = {
+        row["name"]: {
+            "pts": row["pts"],
+            "gs": row["gs"],
+            "matches_played": row["matches_played"],
+        }
+        for row in q(
+            """select name,sum(pts) pts,sum(gs) gs,sum(match_count) matches_played
+               from (
+                   select a name,case when s>0 then 1 when s<0 then -1 else 0 end pts,
+                          s gs,1 match_count
+                   from matches where rnd=? and day=?
+                   union all
+                   select b name,case when s>0 then -1 when s<0 then 1 else 0 end pts,
+                          -s gs,1 match_count
+                   from matches where rnd=? and day=?
+               )
+               group by name""",
+            (rnd, day, rnd, day),
+        )
+    }
 
     grouped = {}
     for row in members:
@@ -652,11 +637,7 @@ def live_tournament_board():
         for row in entrants:
             score = scores.get(
                 row["name"],
-                {
-                    "pts": engine.DAILY_STARTING_POINTS,
-                    "gs": 0,
-                    "matches_played": 0,
-                },
+                {"pts": 0, "gs": 0, "matches_played": 0},
             )
             standings.append({
                 "name": row["name"],

@@ -191,39 +191,6 @@ class EngineReplayTests(unittest.TestCase):
             with self.subTest(spec=spec):
                 self.assertIn(engine.make_bot(spec).fn(state), legal)
 
-    def test_match_points_include_base_result_and_per_game_bonuses(self):
-        def decisive_game(a_player):
-            b_player = 1 - a_player
-            players = ["a", "b"] if a_player == 0 else ["b", "a"]
-            row = 0 if a_player == 0 else 8
-            target_row = 8 if a_player == 0 else 0
-            source = (0, row)
-            moves = []
-            for index in range(5):
-                destination = (index, target_row)
-                moves.append((a_player, (*source, *destination)))
-                source = destination
-                if index < 4:
-                    opponent_x = 8 - index
-                    moves.append((
-                        b_player,
-                        (opponent_x, target_row, opponent_x, target_row + (1 if target_row == 0 else -1)),
-                    ))
-            return {"players": players, "result": 1, "moves": moves}
-
-        games = [decisive_game(0), decisive_game(1)]
-
-        self.assertEqual(engine.match_game_bonus(games), 20)
-        self.assertEqual(engine.match_score_delta(2, games), 50)
-        self.assertEqual(engine.match_score_delta(-2, []), -30)
-        self.assertEqual(engine.match_score_delta(0, []), 0)
-
-    def test_game_bonus_stacks_and_draws_do_not_receive_bonus(self):
-        self.assertEqual(engine._game_bonus(1, 5, 40), 10)
-        self.assertEqual(engine._game_bonus(-1, 5, 40), -10)
-        self.assertEqual(engine._game_bonus(1, 4, 41), 0)
-        self.assertEqual(engine._game_bonus(0, 9, 1), 0)
-
 
 if __name__ == "__main__":
     unittest.main()

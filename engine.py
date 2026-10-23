@@ -21,11 +21,6 @@ DIRS = [(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if dx or dy]
 GOAL = {0: (8, 8), 1: (0, 0)}
 MAX_PLIES = 200
 FIRST_T, MOVE_T = 3.0, 1.0         # giây: nước đầu (tính cả khởi động python) / các nước sau
-DAILY_STARTING_POINTS = 350
-MATCH_WIN_POINTS = 30
-GAME_BONUS_POINTS = 5
-GAME_BONUS_MOVE_LIMIT = 40
-GAME_BONUS_PIECE_MARGIN = 5
 
 
 # ---------------- LUẬT ----------------
@@ -495,46 +490,6 @@ def play_match_recorded(args, rules=None):
 
 def play_match(args, rules=None):
     return _play_match(args, False, rules)
-
-
-def _game_bonus(result, winner_piece_margin, move_count):
-    if not result:
-        return 0
-    bonus = 0
-    if winner_piece_margin >= GAME_BONUS_PIECE_MARGIN:
-        bonus += GAME_BONUS_POINTS
-    if move_count <= GAME_BONUS_MOVE_LIMIT:
-        bonus += GAME_BONUS_POINTS
-    return bonus if result > 0 else -bonus
-
-
-def match_game_bonus(games, rules=None):
-    """Tính bonus của A từ thành tích từng ván trong một trận BO2 đã ghi."""
-    bonus = 0
-    for game in games:
-        result = game["result"]
-        if result == 0:
-            continue
-
-        board = initial()
-        moves = game["moves"]
-        for _, move in moves:
-            board = apply(board, move, rules)
-
-        winner_side = "a" if result > 0 else "b"
-        winner_player = game["players"].index(winner_side)
-        loser_player = 1 - winner_player
-        winner_pieces = sum(owner == winner_player for owner, _ in board.values())
-        loser_pieces = sum(owner == loser_player for owner, _ in board.values())
-        winner_piece_margin = winner_pieces - loser_pieces
-        bonus += _game_bonus(result, winner_piece_margin, len(moves))
-    return bonus
-
-
-def match_score_delta(result, games, rules=None):
-    """Tính điểm trận của A, chưa gồm điểm nền đầu ngày."""
-    outcome = (result > 0) - (result < 0)
-    return outcome * MATCH_WIN_POINTS + match_game_bonus(games, rules)
 
 
 if __name__ == "__main__" and len(sys.argv) == 3 and sys.argv[1] == "test":

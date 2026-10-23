@@ -293,22 +293,8 @@ class AdminDashboardTests(unittest.TestCase):
             [(row["rank"], row["name"], row["pts"], row["gs"], row["matches_played"])
              for row in first_group],
             [
-                (
-                    1,
-                    "entrant",
-                    server.T.engine.DAILY_STARTING_POINTS
-                    + server.T.MATCHES * server.T.engine.MATCH_WIN_POINTS,
-                    server.T.MATCHES,
-                    server.T.MATCHES,
-                ),
-                (
-                    2,
-                    "challenger",
-                    server.T.engine.DAILY_STARTING_POINTS
-                    - server.T.MATCHES * server.T.engine.MATCH_WIN_POINTS,
-                    -server.T.MATCHES,
-                    server.T.MATCHES,
-                ),
+                (1, "entrant", server.T.MATCHES, server.T.MATCHES, server.T.MATCHES),
+                (2, "challenger", -server.T.MATCHES, -server.T.MATCHES, server.T.MATCHES),
             ],
         )
         response.close()
@@ -350,10 +336,6 @@ class AdminDashboardTests(unittest.TestCase):
         self.assertEqual(
             [row["matches_played"] for row in snapshot["groups"][0]["entrants"]],
             [server.T.MATCHES, server.T.MATCHES],
-        )
-        self.assertEqual(
-            [row["pts"] for row in snapshot["groups"][0]["entrants"]],
-            [server.T.engine.DAILY_STARTING_POINTS] * 2,
         )
 
     def test_sheet_sync_api_is_removed(self):
