@@ -273,7 +273,7 @@ def encode(b, me, ply, rules=None):
     return state
 
 
-def play(bots, max_plies=MAX_PLIES, moves=None, rules=None):
+def play(bots, max_plies=MAX_PLIES, moves=None, rules=None, on_move=None, delay=0.0):
     """bots[0] đi trước. Trả +1 nếu bots[0] thắng, -1 nếu thua, 0 hòa."""
     if rules is not None:
         rules = _normalize_rules(rules)
@@ -283,16 +283,37 @@ def play(bots, max_plies=MAX_PLIES, moves=None, rules=None):
         lm = legal_moves(b, p, rules)
         lose = -1 if p == 0 else 1
         if not lm:
+            bot_name = getattr(bots[p], "name", f"Bên {p}")
+            print(f"[ENGINE INFO] Lượt {ply}: {bot_name} không còn nước đi hợp lệ -> xử thua.", file=sys.stderr, flush=True)
             return lose
-        m = bots[p].move(
-            encode(b, p, ply, rules), FIRST_T if ply < 2 else MOVE_T
-        )
+        bot_name = getattr(bots[p], "name", f"Bên {p}")
+        t_limit = FIRST_T if ply < 2 else MOVE_T
+        m = bots[p].move(encode(b, p, ply, rules), t_limit)
+        if m is None:
+            err = getattr(bots[p], "last_error", "Bot không trả về nước đi")
+            print(f"[ENGINE LỖI] Lượt {ply} ({bot_name}): {err} -> Xử thua!", file=sys.stderr, flush=True)
+            return lose
         if m not in lm:
+            err = f"Nước đi phạm quy {m} (không nằm trong danh sách {len(lm)} nước hợp lệ)"
+            bots[p].last_error = err
+            print(f"[ENGINE LỖI] Lượt {ply} ({bot_name}): {err} -> Xử thua!", file=sys.stderr, flush=True)
             return lose
+        captured = b.get((m[2], m[3]))
         b = apply(b, m, rules)
         if moves is not None:
             moves.append((p, m))
         if check_win(b, p, m, rules):
+            is_win = True
+        else:
+            is_win = False
+        if on_move is not None:
+            try:
+                on_move(ply, p, m, captured, is_win)
+            except Exception:
+                pass
+        if delay > 0:
+            time.sleep(delay)
+        if is_win:
             return -lose
     return 0
 
@@ -304,6 +325,10 @@ class ProcBot:
     Khi thi thật nên chạy trong docker/VM riêng."""
 
     def __init__(self, path):
+        self.path = path
+        self.name = os.path.basename(path)
+        self.last_error = None
+        self.stderr_lines = []
         self.cwd = tempfile.mkdtemp(prefix="ott_")
         self.q = queue.Queue()
         kw = {}
@@ -314,35 +339,75 @@ class ProcBot:
             env = {}
 
             def limits():
-                resource.setrlimit(resource.RLIMIT_AS, (512 << 20, 512 << 20))
-                resource.setrlimit(resource.RLIMIT_CPU, (30, 30))
-                resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
-                resource.setrlimit(resource.RLIMIT_NPROC, (0, 0))
+                for attr, val in [
+                    ("RLIMIT_AS", (512 << 20, 512 << 20)),
+                    ("RLIMIT_CPU", (30, 30)),
+                    ("RLIMIT_FSIZE", (0, 0)),
+                    ("RLIMIT_NPROC", (0, 0)),
+                ]:
+                    try:
+                        lim = getattr(resource, attr, None)
+                        if lim is not None:
+                            resource.setrlimit(lim, val)
+                    except Exception:
+                        pass
             kw["preexec_fn"] = limits
             kw["start_new_session"] = True
         self.p = subprocess.Popen([sys.executable, "-I", os.path.abspath(path)], stdin=subprocess.PIPE,
-                                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0,
                                   cwd=self.cwd, env=env, **kw)
         threading.Thread(target=self._reader, daemon=True).start()
+        threading.Thread(target=self._err_reader, daemon=True).start()
 
-    def _reader(self):                      # thread đọc từng dòng stdout -> queue (chạy được cả Windows)
+    def _reader(self):                      # thread đọc từng dòng stdout -> queue
         try:
             for line in iter(self.p.stdout.readline, b""):
                 self.q.put(line[:200])
+        except Exception as e:
+            self.last_error = f"Lỗi đọc stdout: {e}"
+        self.q.put(None)
+
+    def _err_reader(self):                  # thread đọc stderr -> in ra terminal
+        try:
+            for line in iter(self.p.stderr.readline, b""):
+                text = line.decode("utf-8", errors="replace").rstrip()
+                if text:
+                    self.stderr_lines.append(text)
+                    print(f"[{self.name} STDERR] {text}", file=sys.stderr, flush=True)
         except Exception:
             pass
-        self.q.put(None)
 
     def move(self, state, timeout):
         try:
             self.p.stdin.write((json.dumps(state) + "\n").encode())
             self.p.stdin.flush()
+        except Exception as e:
+            self.last_error = f"Lỗi ghi stdin: {e}"
+            print(f"[{self.name}] {self.last_error}", file=sys.stderr, flush=True)
+            return None
+
+        try:
             line = self.q.get(timeout=timeout)
-            if line is None:
-                return None
-            x, y, nx, ny = map(int, line.split())
+        except queue.Empty:
+            self.last_error = f"TIMEOUT: Bot chạy quá {timeout}s không phản hồi nước đi!"
+            print(f"[{self.name}] {self.last_error}", file=sys.stderr, flush=True)
+            return None
+
+        if line is None:
+            detail = " | ".join(self.stderr_lines[-3:]) if self.stderr_lines else "tiến trình đã thoát"
+            self.last_error = f"Bot bị crash hoặc thoát sớm: {detail}"
+            print(f"[{self.name}] {self.last_error}", file=sys.stderr, flush=True)
+            return None
+
+        try:
+            parts = line.strip().split()
+            if len(parts) != 4:
+                raise ValueError(f"Đầu ra phải là 4 số 'x y nx ny', bot in ra: {line!r}")
+            x, y, nx, ny = map(int, parts)
             return (x, y, nx, ny)
-        except Exception:
+        except Exception as e:
+            self.last_error = f"Lỗi định dạng nước đi: {e}"
+            print(f"[{self.name}] {self.last_error}", file=sys.stderr, flush=True)
             return None
 
     def close(self):
@@ -456,7 +521,7 @@ def make_bot(spec):
     return FuncBot(BTC[int(spec[4:])]) if spec.startswith("btc:") else ProcBot(spec)
 
 
-def _play_match(args, record, rules=None):
+def _play_match(args, record, rules=None, on_move=None, delay=0.0):
     """args=(specA, specB), spec là đường dẫn file bot hoặc 'btc:k'. BO2, mỗi bên đi trước 1 ván.
     Trả tổng điểm của A; tùy chọn kèm dữ liệu nước đi từng ván."""
     a, b = args
@@ -465,11 +530,18 @@ def _play_match(args, record, rules=None):
     for first in (0, 1):
         ba, bb = make_bot(a), make_bot(b)
         moves = [] if record else None
+
+        def game_on_move(ply, p, m, captured, is_win):
+            if on_move:
+                on_move(first, ply, p, m, captured, is_win)
+
         try:
             raw = play(
                 [ba, bb] if first == 0 else [bb, ba],
                 moves=moves,
                 rules=rules,
+                on_move=game_on_move if on_move else None,
+                delay=delay,
             )
             r = raw if first == 0 else -raw
         finally:
@@ -484,12 +556,14 @@ def _play_match(args, record, rules=None):
     return (s, games) if record else s
 
 
-def play_match_recorded(args, rules=None):
-    return _play_match(args, True, rules)
+def play_match_recorded(args, rules=None, on_move=None, delay=0.0):
+    return _play_match(args, True, rules=rules, on_move=on_move, delay=delay)
 
 
-def play_match(args, rules=None):
-    return _play_match(args, False, rules)
+def play_match(args, rules=None, on_move=None, delay=0.0):
+    return _play_match(args, False, rules=rules, on_move=on_move, delay=delay)
+
+
 
 
 if __name__ == "__main__" and len(sys.argv) == 3 and sys.argv[1] == "test":

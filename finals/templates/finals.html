@@ -1,0 +1,1389 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vòng Chung Kết OTT — Xem Trực Tiếp & Thi Đấu</title>
+  <style>
+    :root {
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px 16px 60px;
+      max-width: 1100px;
+      margin: 0 auto;
+      line-height: 1.5;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .brand h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      background: rgba(79, 70, 229, 0.2);
+      color: #818cf8;
+      border: 1px solid rgba(79, 70, 229, 0.4);
+    }
+    .badge-live {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid #ef4444;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.45; }
+      100% { opacity: 1; }
+    }
+
+    .nav-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 8px;
+      overflow-x: auto;
+    }
+    .nav-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .nav-btn:hover {
+      color: var(--text);
+      background: rgba(255,255,255,0.05);
+    }
+    .nav-btn.active {
+      color: #fff;
+      background: var(--primary);
+      border-color: var(--primary-hover);
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      font-size: 1.15rem;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media(max-width: 768px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 12px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      margin-bottom: 12px;
+    }
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    button.btn {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 9px 16px;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+    button.btn:hover { background: var(--primary-hover); }
+    button.btn-danger { background: var(--danger); }
+    button.btn-danger:hover { background: #dc2626; }
+    button.btn-secondary { background: #334155; }
+    button.btn-secondary:hover { background: #475569; }
+    button.btn-sm { padding: 5px 10px; font-size: 0.8rem; }
+    button.btn-live {
+      background: #dc2626;
+      color: #fff;
+      animation: pulse 1.5s infinite;
+    }
+    button.btn-live:hover { background: #b91c1c; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      color: var(--text-muted);
+      font-weight: 600;
+      background: rgba(0,0,0,0.15);
+    }
+    tr:hover td {
+      background: rgba(255,255,255,0.02);
+    }
+
+    .status-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .status-done { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .status-running { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .status-pending { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; }
+    .status-failed { background: rgba(239, 68, 68, 0.2); color: #f87171; }
+
+    .toast {
+      padding: 10px 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: 0.9rem;
+      display: none;
+    }
+    .toast.success { display: block; background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid #10b981; }
+    .toast.error { display: block; background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid #ef4444; }
+
+    .queue-stats {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .stat-box {
+      flex: 1;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .stat-box .val {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #818cf8;
+    }
+    .stat-box .lbl {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* REPLAY & LIVE BOARD STYLES */
+    .board-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 520px) 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    @media(max-width: 900px) {
+      .board-layout { grid-template-columns: 1fr; }
+    }
+    .board-wrapper {
+      position: relative;
+      background: #0f172a;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      width: 100%;
+    }
+    .board-wrapper svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 6px;
+    }
+    .replay-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      width: 100%;
+      margin-top: 12px;
+    }
+    .replay-slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      margin: 8px 0 4px;
+    }
+    .replay-slider-wrap input[type=range] {
+      flex: 1;
+      margin-bottom: 0;
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+    .caption-banner {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-size: 0.92rem;
+    }
+    .player-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .player-a { background: rgba(79, 70, 229, 0.25); color: #818cf8; border: 1px solid #4f46e5; }
+    .player-b { background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid #ef4444; }
+
+    .live-feed-card {
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      max-height: 520px;
+      display: flex;
+      flex-direction: column;
+    }
+    .live-feed-card h3 {
+      font-size: 0.95rem;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .live-feed-list {
+      flex: 1;
+      overflow-y: auto;
+      list-style: none;
+      font-size: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-right: 4px;
+    }
+    .live-feed-item {
+      padding: 6px 10px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.05);
+      animation: fadeIn 0.25s ease-in;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .live-feed-item.capture {
+      border-color: rgba(245, 158, 11, 0.4);
+      background: rgba(245, 158, 11, 0.08);
+      font-weight: 600;
+    }
+    .live-feed-item.win {
+      border-color: rgba(16, 185, 129, 0.5);
+      background: rgba(16, 185, 129, 0.12);
+      font-weight: 700;
+      color: #34d399;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <h1>🏆 OTT Vòng Chung Kết</h1>
+      <span class="badge">Port 9000</span>
+      <span class="badge" style="background: rgba(16,185,129,0.2); color:#34d399; border-color:#10b981;">PostgreSQL Online</span>
+    </div>
+    <div id="user-badge" style="font-size: 0.9rem; color: var(--text-muted);">
+      Chưa đăng nhập
+    </div>
+  </header>
+
+  <div id="global-toast" class="toast"></div>
+
+  <nav class="nav-tabs">
+    <button class="nav-btn active" onclick="switchTab('standings')">📊 Bảng Xếp Hạng</button>
+    <button class="nav-btn" onclick="switchTab('matches')">⚔️ Trận Đấu & Hàng Đợi</button>
+    <button class="nav-btn" onclick="switchTab('live')">🔴 Bàn Cờ Trực Tiếp (Live Stream)</button>
+    <button class="nav-btn" onclick="switchTab('auth')">👤 Thí Sinh</button>
+    <button class="nav-btn" onclick="switchTab('admin')">⚙️ Ban Tổ Chức (Admin)</button>
+  </nav>
+
+  <!-- TAB 1: BẢNG XẾP HẠNG -->
+  <div id="tab-standings" class="tab-content active">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h2>📊 Bảng Điểm Tích Luỹ Chung Kết</h2>
+        <button class="btn btn-secondary" onclick="loadStandings()">Làm mới</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 60px;">Hạng</th>
+            <th>Thí Sinh</th>
+            <th style="text-align:center;">Thắng</th>
+            <th style="text-align:center;">Hoà</th>
+            <th style="text-align:center;">Thua</th>
+            <th style="text-align:center;">Điểm</th>
+            <th>Cập nhật</th>
+          </tr>
+        </thead>
+        <tbody id="standings-body">
+          <tr><td colspan="7" style="text-align:center; color:var(--text-muted)">Đang tải...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB 2: TRẬN ĐẤU & HÀNG ĐỢI -->
+  <div id="tab-matches" class="tab-content">
+    <div class="card">
+      <div class="queue-stats">
+        <div class="stat-box">
+          <div class="val" id="queue-count">0</div>
+          <div class="lbl">Trong Hàng Đợi (Queue)</div>
+        </div>
+        <div class="stat-box">
+          <div class="val" id="workers-count">4</div>
+          <div class="lbl">Workers Song Song</div>
+        </div>
+        <div class="stat-box">
+          <div class="val" id="total-matches-count">0</div>
+          <div class="lbl">Tổng Trận Đấu</div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h2>⚔️ Danh Sách Trận Đấu</h2>
+        <button class="btn btn-secondary" onclick="loadMatches()">Làm mới</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Request ID</th>
+            <th>Thí Sinh A</th>
+            <th>Tỉ Số</th>
+            <th>Thí Sinh B</th>
+            <th>Trạng Thái</th>
+            <th>Người Thắng</th>
+            <th>Thời Gian</th>
+            <th>Xem Trận</th>
+          </tr>
+        </thead>
+        <tbody id="matches-body">
+          <tr><td colspan="8" style="text-align:center; color:var(--text-muted)">Đang tải...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB 3: BÀN CỜ TRỰC TIẾP (LIVE STREAM) -->
+  <div id="tab-live" class="tab-content">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <h2>🔴 Bàn Cờ Trực Tiếp</h2>
+          <span id="live-indicator-badge" class="badge">Chờ trận</span>
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <select id="select-live-match" style="margin-bottom:0; width:auto; min-width:240px;" onchange="onSelectLiveMatch()">
+            <option value="">-- Chọn trận đấu --</option>
+          </select>
+          <select id="select-live-game" style="margin-bottom:0; width:auto;" onchange="onSelectLiveGame()">
+            <option value="0">Ván 1</option>
+            <option value="1">Ván 2</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="live-empty-message" style="text-align:center; padding: 40px 10px; color:var(--text-muted);">
+        Chưa có trận đấu nào được chọn. Hãy chọn một trận đấu ở trên hoặc tạo một trận mới tại tab <strong>Ban Tổ Chức</strong> để xem trực tiếp!
+      </div>
+
+      <div id="live-board-area" class="board-layout" style="display:none;">
+        <!-- CỘT TRÁI: BÀN CỜ & ĐIỀU KHIỂN -->
+        <div>
+          <div class="caption-banner" id="live-header-info"></div>
+
+          <div class="board-wrapper" id="svg-board-container"></div>
+
+          <div class="caption-banner" id="live-caption" style="margin-top:12px; margin-bottom:6px;">
+            Đang chuẩn bị trận đấu...
+          </div>
+
+          <!-- Thanh kéo tua (chỉ hiện khi xem lại hoặc sau khi trận kết thúc) -->
+          <div class="replay-slider-wrap" id="slider-wrap">
+            <input type="range" id="replay-range" min="0" max="0" value="0" oninput="onSliderMove()">
+            <span id="replay-step-text" style="font-size:0.85rem; font-weight:700; width:65px; text-align:right;">0 / 0</span>
+          </div>
+
+          <div class="replay-controls" id="replay-controls-bar">
+            <button class="btn btn-secondary btn-sm" onclick="replayGotoFirst()" title="Về đầu ván">⏮️ Đầu</button>
+            <button class="btn btn-secondary btn-sm" onclick="replayPrev()" title="Lùi 1 nước">◀️ Lùi</button>
+            <button class="btn btn-sm" id="btn-replay-play" onclick="replayTogglePlay()">▶️ Phát Tự Động</button>
+            <button class="btn btn-secondary btn-sm" onclick="replayNext()" title="Tiến 1 nước">▶️ Tiến</button>
+            <button class="btn btn-secondary btn-sm" onclick="replayGotoLast()" title="Đến nước cuối">⏭️ Cuối</button>
+          </div>
+        </div>
+
+        <!-- CỘT PHẢI: BÌNH LUẬN TRỰC TIẾP (LIVE COMMENTARY FEED) -->
+        <div class="live-feed-card">
+          <h3>
+            <span>📡 Diễn Biến Nước Đi Trực Tiếp</span>
+            <span id="live-turn-clock" style="font-weight:600; color:#818cf8; font-size:0.8rem;"></span>
+          </h3>
+          <ul class="live-feed-list" id="live-feed-list">
+            <li class="live-feed-item" style="color:var(--text-muted); text-align:center;">Trận đấu đang chuẩn bị khởi tranh...</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: AUTH / THÍ SINH -->
+  <div id="tab-auth" class="tab-content">
+    <div class="grid-2">
+      <div class="card">
+        <h2>🔑 Đăng Nhập Sinh Viên</h2>
+        <div id="login-section">
+          <label>Tên đăng nhập (Username):</label>
+          <input type="text" id="login-user" placeholder="vd: sv_nguyenvana">
+          <label>Mật khẩu:</label>
+          <input type="password" id="login-pass" placeholder="••••••••">
+          <button class="btn" onclick="doLogin()">Đăng Nhập</button>
+        </div>
+        <div id="logged-section" style="display:none;">
+          <p style="margin-bottom: 12px; color: #34d399;">✅ Đang đăng nhập với tài khoản:</p>
+          <div style="background:#0f172a; padding:12px; border-radius:6px; margin-bottom:12px;">
+            <p><strong>Username:</strong> <span id="me-username"></span></p>
+            <p><strong>Họ Tên:</strong> <span id="me-display"></span></p>
+            <p><strong>MSSV:</strong> <span id="me-student-id"></span></p>
+          </div>
+          <button class="btn btn-danger" onclick="doLogout()">Đăng Xuất</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>ℹ️ Quy Tắc Thi Đấu Chung Kết</h2>
+        <ul style="padding-left: 18px; color: var(--text-muted); font-size: 0.9rem;">
+          <li style="margin-bottom: 8px;"><strong>Bàn cờ:</strong> Kích thước 9x9. Quân đi 1 ô theo 8 hướng.</li>
+          <li style="margin-bottom: 8px;"><strong>Quân cờ:</strong> ✊ Búa (0) ăn ✌ Kéo (2); ✌ Kéo (2) ăn ✋ Bao (1); ✋ Bao (1) ăn ✊ Búa (0).</li>
+          <li style="margin-bottom: 8px;"><strong>Mục tiêu:</strong> Đưa 1 quân bất kỳ vào ô đích đối diện (ô i9 cho người đi trước, ô a1 cho người đi sau) HOẶC ăn hết 1 loại quân của đối phương.</li>
+          <li style="margin-bottom: 8px;"><strong>Thể thức:</strong> BO2 (mỗi bên đi trước 1 ván). Thắng +3 điểm, Hoà +1 điểm, Thua 0 điểm.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: BAN TỔ CHỨC (ADMIN) -->
+  <div id="tab-admin" class="tab-content">
+    <div class="card">
+      <div style="display:flex; gap:10px; align-items:center;">
+        <input type="password" id="admin-secret" value="btc_admin_secret_2026" placeholder="Nhập Secret Admin (FINALS_ADMIN_SECRET)" style="margin-bottom:0; max-width:320px;">
+        <button class="btn" onclick="saveAdminSecret()">Lưu Secret</button>
+        <span id="admin-status" style="font-size:0.85rem; color:#34d399;"></span>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <!-- TẠO CẶP ĐẤU -->
+      <div class="card">
+        <h2>🚀 Đẩy Cặp Đấu Vào Hàng Đợi (Queue)</h2>
+        <label>Thí Sinh A:</label>
+        <input type="text" id="match-player-a" placeholder="Username thí sinh A">
+        <label>Thí Sinh B:</label>
+        <input type="text" id="match-player-b" placeholder="Username thí sinh B">
+        <label>Request ID (tuỳ chọn, để kiểm tra idempotent):</label>
+        <input type="text" id="match-request-id" placeholder="Tự sinh nếu để trống">
+        
+        <label>Nhịp độ thi đấu trực tiếp (Live Delay):</label>
+        <select id="select-live-delay" style="margin-bottom:12px;">
+          <option value="0.4" selected>0.4s / nước (Chuẩn xem trực tiếp trực quan)</option>
+          <option value="0.2">0.2s / nước (Nhanh)</option>
+          <option value="0.8">0.8s / nước (Chậm rãi, hồi hộp)</option>
+          <option value="0.0">0.0s (Tối đa tốc độ máy, không trễ)</option>
+        </select>
+
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+          <input type="checkbox" id="check-auto-live" checked style="width:auto; margin-bottom:0;">
+          <label for="check-auto-live" style="margin-bottom:0; cursor:pointer;">Chuyển ngay sang xem Live Stream khi vừa bấm Tạo trận</label>
+        </div>
+        <button class="btn btn-live" onclick="createMatch()">🔴 Bắt Đầu Trận Đấu & Xem Live</button>
+      </div>
+
+      <!-- ĐĂNG KÝ THÍ SINH -->
+      <div class="card">
+        <h2>➕ Thêm Thí Sinh Mới Vào SQL</h2>
+        <label>Username:</label>
+        <input type="text" id="new-user" placeholder="vd: bot_vinh">
+        <label>Mật khẩu:</label>
+        <input type="password" id="new-pass" placeholder="Tối thiểu 6 ký tự">
+        <label>Họ và Tên:</label>
+        <input type="text" id="new-display" placeholder="Nguyễn Văn A">
+        <label>Mã Sinh Viên (MSSV):</label>
+        <input type="text" id="new-sid" placeholder="20210000">
+        <button class="btn" onclick="addContestant()">Thêm Thí Sinh</button>
+      </div>
+    </div>
+
+    <!-- DANH SÁCH THÍ SINH -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h2>👥 Danh Sách Thí Sinh Trong CSDL (PostgreSQL)</h2>
+        <button class="btn btn-secondary" onclick="loadContestants()">Làm mới</button>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Họ Tên</th>
+            <th>MSSV</th>
+            <th>Ngày Tạo</th>
+            <th>Thao Tác</th>
+          </tr>
+        </thead>
+        <tbody id="contestants-body">
+          <tr><td colspan="5" style="text-align:center; color:var(--text-muted)">Nhập Admin Secret và nhấn Làm mới...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let token = localStorage.getItem("finals_token") || "";
+    let adminSecret = localStorage.getItem("finals_admin_secret") || "btc_admin_secret_2026";
+
+    // --- LIVE & REPLAY STATE ---
+    let liveEventSource = null;     // SSE stream
+    let currentMatchData = null;    // Thông tin trận
+    let currentMatchGames = [];     // Dữ liệu games ván 1, ván 2
+    let currentGameIndex = 0;       // 0 hoặc 1
+    let currentStep = 0;            // Nước đi đang hiển thị
+    let isLiveStreaming = false;    // Đang phát trực tiếp
+    let replayTimer = null;         // Timer khi tự phát replay
+    let playSpeed = 500;
+
+    const cols = ["a","b","c","d","e","f","g","h","i"];
+    const icons = ["✊", "✋", "✌"]; // 0: Búa, 1: Bao, 2: Kéo
+
+    function showToast(msg, isError = false) {
+      const el = document.getElementById("global-toast");
+      el.className = "toast " + (isError ? "error" : "success");
+      el.textContent = msg;
+      setTimeout(() => { el.className = "toast"; }, 4000);
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-content").forEach(c => c.classList.remove("active"));
+      
+      const btn = Array.from(document.querySelectorAll(".nav-btn")).find(b => b.getAttribute("onclick").includes(`'${tab}'`));
+      if (btn) btn.classList.add("active");
+      
+      const tabEl = document.getElementById("tab-" + tab);
+      if (tabEl) tabEl.classList.add("active");
+
+      if (tab === "standings") loadStandings();
+      if (tab === "matches") { loadMatches(); loadQueue(); }
+      if (tab === "auth") checkMe();
+      if (tab === "admin") {
+        document.getElementById("admin-secret").value = adminSecret;
+        loadContestants();
+      }
+    }
+
+    // --- STANDINGS ---
+    async function loadStandings() {
+      try {
+        const res = await fetch("/finals/standings");
+        const data = await res.json();
+        const tbody = document.getElementById("standings-body");
+        tbody.innerHTML = "";
+        if (!data.standings || data.standings.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text-muted)">Chưa có dữ liệu thi đấu</td></tr>';
+          return;
+        }
+        data.standings.forEach((s, idx) => {
+          tbody.innerHTML += `
+            <tr>
+              <td><strong>#${idx + 1}</strong></td>
+              <td><strong>${s.username}</strong></td>
+              <td style="text-align:center; color:#34d399;">${s.wins}</td>
+              <td style="text-align:center; color:#cbd5e1;">${s.draws}</td>
+              <td style="text-align:center; color:#f87171;">${s.losses}</td>
+              <td style="text-align:center;"><strong style="font-size:1.1rem; color:#818cf8;">${s.points}</strong></td>
+              <td style="color:var(--text-muted); font-size:0.8rem;">${new Date(s.updated_at).toLocaleTimeString()}</td>
+            </tr>
+          `;
+        });
+      } catch (err) {
+        showToast("Lỗi tải BXH: " + err.message, true);
+      }
+    }
+
+    // --- MATCHES & QUEUE ---
+    async function loadQueue() {
+      try {
+        const res = await fetch("/finals/admin/queue", {
+          headers: { "X-Finals-Token": token, "X-Admin-Secret": adminSecret }
+        });
+        const data = await res.json();
+        if (data.ok && data.queue) {
+          document.getElementById("queue-count").textContent = data.queue.queue_size;
+          document.getElementById("workers-count").textContent = data.queue.max_workers;
+        }
+      } catch (_) {}
+    }
+
+    let allMatchList = [];
+
+    async function loadMatches() {
+      try {
+        const res = await fetch("/finals/matches?per_page=50");
+        const data = await res.json();
+        const tbody = document.getElementById("matches-body");
+        tbody.innerHTML = "";
+        if (!data.ok || !data.matches || data.matches.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-muted)">Chưa có trận đấu nào</td></tr>';
+          return;
+        }
+        document.getElementById("total-matches-count").textContent = data.total || data.matches.length;
+        allMatchList = data.matches;
+        updateMatchDropdownOptions();
+
+        data.matches.forEach(m => {
+          const score = (m.status === 'done') ? `${m.score_a} - ${m.score_b}` : '-';
+          const winner = m.winner ? `🏆 <strong>${m.winner}</strong>` : (m.status === 'done' ? 'Hoà' : '-');
+          
+          let actionBtn = "";
+          if (m.status === 'running' || m.status === 'pending') {
+            actionBtn = `<button class="btn btn-live btn-sm" onclick="watchMatchLive('${m.request_id}', '${m.player_a}', '${m.player_b}')">🔴 Xem Live</button>`;
+          } else if (m.status === 'done') {
+            actionBtn = `<button class="btn btn-secondary btn-sm" onclick="watchMatchReplay('${m.request_id}')">▶️ Xem Lại</button>`;
+          } else {
+            actionBtn = `<span style="color:#f87171; font-size:0.8rem;">Thất bại</span>`;
+          }
+
+          tbody.innerHTML += `
+            <tr>
+              <td><code style="color:#94a3b8; font-size:0.8rem;">${m.request_id.substring(0, 8)}...</code></td>
+              <td><strong>${m.player_a}</strong></td>
+              <td style="font-weight:700; color:#818cf8;">${score}</td>
+              <td><strong>${m.player_b}</strong></td>
+              <td><span class="status-tag status-${m.status}">${m.status}</span></td>
+              <td>${winner}</td>
+              <td style="color:var(--text-muted); font-size:0.8rem;">${new Date(m.created_at).toLocaleTimeString()}</td>
+              <td>${actionBtn}</td>
+            </tr>
+          `;
+        });
+      } catch (err) {
+        showToast("Lỗi tải danh sách trận: " + err.message, true);
+      }
+    }
+
+    function updateMatchDropdownOptions() {
+      const sel = document.getElementById("select-live-match");
+      const currentVal = sel.value;
+      sel.innerHTML = '<option value="">-- Chọn trận đấu --</option>';
+      allMatchList.forEach(m => {
+        const prefix = (m.status === 'running') ? "🔴 [LIVE] " : (m.status === 'done' ? "✅ " : "⏳ ");
+        sel.innerHTML += `<option value="${m.request_id}" data-status="${m.status}" data-pa="${m.player_a}" data-pb="${m.player_b}">${prefix}[#${m.id}] ${m.player_a} vs ${m.player_b} (${m.status})</option>`;
+      });
+      if (currentVal) sel.value = currentVal;
+    }
+
+    function onSelectLiveMatch() {
+      const sel = document.getElementById("select-live-match");
+      const opt = sel.options[sel.selectedIndex];
+      if (!opt || !opt.value) return;
+      const status = opt.getAttribute("data-status");
+      const pa = opt.getAttribute("data-pa");
+      const pb = opt.getAttribute("data-pb");
+
+      if (status === 'running' || status === 'pending') {
+        watchMatchLive(opt.value, pa, pb);
+      } else {
+        watchMatchReplay(opt.value);
+      }
+    }
+
+    // =========================================================================
+    // 🔴 CHỨC NĂNG 1: XEM TRỰC TIẾP (REAL-TIME LIVE STREAM QUA SSE)
+    // =========================================================================
+    function watchMatchLive(requestId, playerA, playerB) {
+      cleanupLiveStream();
+      switchTab("live");
+
+      document.getElementById("live-empty-message").style.display = "none";
+      document.getElementById("live-board-area").style.display = "grid";
+      document.getElementById("select-live-match").value = requestId;
+
+      const badge = document.getElementById("live-indicator-badge");
+      badge.className = "badge badge-live";
+      badge.textContent = "🔴 LIVE STREAMING";
+
+      // Ẩn thanh slider khi đang stream live để tránh rối
+      document.getElementById("slider-wrap").style.display = "none";
+      document.getElementById("replay-controls-bar").style.display = "none";
+
+      currentMatchData = { request_id: requestId, player_a: playerA, player_b: playerB };
+      currentMatchGames = [
+        { players: ["a", "b"], moves: [], result: null },
+        { players: ["b", "a"], moves: [], result: null }
+      ];
+      currentGameIndex = 0;
+      currentStep = 0;
+      isLiveStreaming = true;
+
+      // Xoá commentary feed
+      const feed = document.getElementById("live-feed-list");
+      feed.innerHTML = `<li class="live-feed-item">🔴 Đã kết nối kênh Live của trận đấu! Đang đón nhận nước đi...</li>`;
+
+      updateLiveHeader();
+      drawBoardFromState();
+
+      // Mở kết nối SSE
+      liveEventSource = new EventSource(`/finals/matches/${requestId}/live`);
+
+      liveEventSource.onmessage = function(event) {
+        if (!event.data) return;
+        try {
+          const ev = JSON.parse(event.data);
+          handleLiveStreamEvent(ev);
+        } catch (e) {
+          console.error("Lỗi parse SSE event:", e);
+        }
+      };
+
+      liveEventSource.onerror = function() {
+        // SSE tự động kết nối lại khi gặp lỗi
+      };
+    }
+
+    function handleLiveStreamEvent(ev) {
+      if (ev.type === "connected") {
+        addFeedItem(`Đã bắt đầu truyền phát trực tiếp thời gian thực.`);
+      } else if (ev.type === "match_start") {
+        addFeedItem(`⚔️ Trận đấu chính thức bắt đầu giữa ${ev.player_a} và ${ev.player_b}!`);
+      } else if (ev.type === "move") {
+        const gameIdx = ev.game;
+        if (gameIdx !== currentGameIndex) {
+          currentGameIndex = gameIdx;
+          currentStep = 0;
+          document.getElementById("select-live-game").value = gameIdx;
+          addFeedItem(`🔄 Bắt đầu Ván ${gameIdx + 1}!`);
+        }
+
+        const game = currentMatchGames[gameIdx];
+        if (!game.moves) game.moves = [];
+        game.moves.push([ev.player, ev.move]);
+        currentStep = game.moves.length;
+
+        // Render nước đi
+        drawBoardFromState();
+
+        const [fx, fy, tx, ty] = ev.move;
+        const moveStr = `${cols[fx]}${fy + 1} ➔ ${cols[tx]}${ty + 1}`;
+        const isCapture = ev.captured !== null && ev.captured !== undefined;
+        let itemClass = isCapture ? "live-feed-item capture" : "live-feed-item";
+        let text = `[Nước ${ev.ply + 1}] <strong>${ev.mover}</strong> đi <code>${moveStr}</code>`;
+        if (isCapture) {
+          text += ` ⚡ <strong>ĂN QUÂN!</strong>`;
+        }
+        if (ev.is_win) {
+          text += ` 🏆 <strong>VỀ ĐÍCH CHIẾN THẮNG!</strong>`;
+          itemClass = "live-feed-item win";
+        }
+        addFeedItem(text, itemClass);
+
+        // Cập nhật lượt đi tiếp theo
+        const nextPlayer = (ev.player === 0) ? 1 : 0;
+        const nextName = (game.players[nextPlayer] === "a") ? currentMatchData.player_a : currentMatchData.player_b;
+        document.getElementById("live-caption").innerHTML = `Nước vừa đi: <strong>${ev.mover}</strong> (<code>${moveStr}</code>) · Đang chờ <strong>${nextName}</strong> tính toán...`;
+        document.getElementById("live-turn-clock").textContent = `Lượt của: ${nextName}`;
+
+      } else if (ev.type === "match_end") {
+        cleanupLiveStream();
+        const badge = document.getElementById("live-indicator-badge");
+        badge.className = "badge";
+        badge.style.background = "rgba(16, 185, 129, 0.2)";
+        badge.style.color = "#34d399";
+        badge.textContent = "✅ KẾT THÚC";
+
+        const winnerStr = ev.winner ? `🏆 Thí sinh ${ev.winner} chiến thắng chung cuộc!` : `🤝 Hai bên hoà nhau!`;
+        addFeedItem(`🏁 TRẬN ĐẤU KẾT THÚC! Tỉ số: ${ev.score_a} - ${ev.score_b}. ${winnerStr}`, "live-feed-item win");
+        document.getElementById("live-caption").innerHTML = `🎉 <strong>${winnerStr}</strong> (Tỉ số: ${ev.score_a} - ${ev.score_b})`;
+        document.getElementById("live-turn-clock").textContent = "Hoàn tất";
+
+        // Mở thanh slider để xem lại
+        document.getElementById("slider-wrap").style.display = "flex";
+        document.getElementById("replay-controls-bar").style.display = "flex";
+        currentMatchData.score_a = ev.score_a;
+        currentMatchData.score_b = ev.score_b;
+        currentMatchData.winner = ev.winner;
+        if (ev.games) currentMatchGames = ev.games;
+        updateLiveHeader();
+        updateSliderMax();
+        loadStandings();
+        loadMatches();
+
+      } else if (ev.type === "match_failed") {
+        cleanupLiveStream();
+        addFeedItem(`❌ Trận đấu bị lỗi: ${ev.error}`, "live-feed-item win");
+        document.getElementById("live-caption").innerHTML = `<span style="color:#f87171;">Lỗi: ${ev.error}</span>`;
+      }
+    }
+
+    function addFeedItem(html, className = "live-feed-item") {
+      const list = document.getElementById("live-feed-list");
+      const li = document.createElement("li");
+      li.className = className;
+      li.innerHTML = html;
+      list.appendChild(li);
+      list.scrollTop = list.scrollHeight;
+    }
+
+    function cleanupLiveStream() {
+      if (liveEventSource) {
+        liveEventSource.close();
+        liveEventSource = null;
+      }
+      isLiveStreaming = false;
+      stopReplay();
+    }
+
+    // =========================================================================
+    // 🎬 CHỨC NĂNG 2: XEM LẠI TRẬN ĐÃ ĐẤU (REPLAY)
+    // =========================================================================
+    async function watchMatchReplay(requestId) {
+      cleanupLiveStream();
+      switchTab("live");
+
+      try {
+        const res = await fetch(`/finals/matches/${requestId}/replay`);
+        const data = await res.json();
+        if (!data.ok || !data.match) {
+          showToast("Không tìm thấy dữ liệu trận đấu", true);
+          return;
+        }
+
+        currentMatchData = data.match;
+        currentMatchGames = data.match.replay || [];
+        currentGameIndex = 0;
+        currentStep = 0;
+
+        document.getElementById("select-live-match").value = requestId;
+        document.getElementById("live-empty-message").style.display = "none";
+        document.getElementById("live-board-area").style.display = "grid";
+
+        const badge = document.getElementById("live-indicator-badge");
+        badge.className = "badge";
+        badge.style.background = "rgba(148, 163, 184, 0.2)";
+        badge.style.color = "#cbd5e1";
+        badge.textContent = "🎬 XEM LẠI";
+
+        document.getElementById("slider-wrap").style.display = "flex";
+        document.getElementById("replay-controls-bar").style.display = "flex";
+
+        // Tái tạo feed bình luận
+        const feed = document.getElementById("live-feed-list");
+        feed.innerHTML = `<li class="live-feed-item">Xem lại trận đấu giữa <strong>${currentMatchData.player_a}</strong> và <strong>${currentMatchData.player_b}</strong>.</li>`;
+        
+        updateLiveHeader();
+        updateSliderMax();
+        drawBoardFromState();
+
+      } catch (err) {
+        showToast("Lỗi tải trận đấu: " + err.message, true);
+      }
+    }
+
+    function onSelectLiveGame() {
+      stopReplay();
+      currentGameIndex = Number(document.getElementById("select-live-game").value);
+      currentStep = 0;
+      updateSliderMax();
+      drawBoardFromState();
+    }
+
+    function updateLiveHeader() {
+      if (!currentMatchData) return;
+      const m = currentMatchData;
+      const game = currentMatchGames[currentGameIndex] || { players: ["a", "b"] };
+      const p0 = game.players[0] === "a" ? m.player_a : m.player_b;
+
+      document.getElementById("live-header-info").innerHTML = `
+        <span class="player-pill player-a">🔵 ${m.player_a}</span> <strong>vs</strong> 
+        <span class="player-pill player-b">🔴 ${m.player_b}</span>
+        &nbsp;|&nbsp; <strong>Tỉ số: ${m.score_a ?? '-'} - ${m.score_b ?? '-'}</strong>
+        &nbsp;|&nbsp; Ván ${currentGameIndex + 1}: <span style="color:#818cf8;">${p0}</span> đi trước
+      `;
+    }
+
+    function updateSliderMax() {
+      const game = currentMatchGames[currentGameIndex];
+      const total = (game && game.moves) ? game.moves.length : 0;
+      const slider = document.getElementById("replay-range");
+      slider.max = total;
+      slider.value = currentStep;
+      document.getElementById("replay-step-text").textContent = `${currentStep} / ${total}`;
+    }
+
+    // =========================================================================
+    // 🎨 VẼ BÀN CỜ SVG 9x9
+    // =========================================================================
+    function drawBoardFromState() {
+      const game = currentMatchGames[currentGameIndex];
+      const moves = (game && game.moves) ? game.moves : [];
+      const total = moves.length;
+
+      // Khởi tạo bàn cờ ban đầu
+      const board = new Map();
+      for (let x = 0; x < 9; x++) {
+        board.set(`${x},0`, { player: 0, type: x % 3 }); // Hàng 1, y=0 (bên đi trước)
+        board.set(`${x},8`, { player: 1, type: x % 3 }); // Hàng 9, y=8 (bên đi sau)
+      }
+
+      let lastMove = null;
+
+      // Áp dụng các nước đi đến currentStep
+      for (let i = 0; i < currentStep; i++) {
+        const [, m] = moves[i];
+        const [x, y, nx, ny] = m;
+        const piece = board.get(`${x},${y}`);
+        board.delete(`${x},${y}`);
+        if (piece) board.set(`${nx},${ny}`, piece);
+        lastMove = m;
+      }
+
+      const tileSize = 50;
+      const offset = 25;
+      const boardDim = 9 * tileSize + offset * 2; // 500
+      let svg = `<svg viewBox="0 0 ${boardDim} ${boardDim}" role="img" aria-label="Bàn cờ OTT 9x9">`;
+
+      // Cột chữ cái a-i
+      for (let x = 0; x < 9; x++) {
+        const cx = offset + x * tileSize + tileSize / 2;
+        svg += `<text x="${cx}" y="16" fill="#94a3b8" font-size="12" font-weight="700" text-anchor="middle">${cols[x]}</text>`;
+        svg += `<text x="${cx}" y="${boardDim - 7}" fill="#94a3b8" font-size="12" font-weight="700" text-anchor="middle">${cols[x]}</text>`;
+      }
+      // Hàng số 1-9
+      for (let y = 0; y < 9; y++) {
+        const cy = offset + y * tileSize + tileSize / 2 + 4;
+        svg += `<text x="12" y="${cy}" fill="#94a3b8" font-size="12" font-weight="700" text-anchor="middle">${y + 1}</text>`;
+        svg += `<text x="${boardDim - 12}" y="${cy}" fill="#94a3b8" font-size="12" font-weight="700" text-anchor="middle">${y + 1}</text>`;
+      }
+
+      // Vẽ ô cờ
+      for (let y = 0; y < 9; y++) {
+        for (let x = 0; x < 9; x++) {
+          const px = offset + x * tileSize;
+          const py = offset + y * tileSize;
+          const isGoal0 = (x === 8 && y === 8);
+          const isGoal1 = (x === 0 && y === 0);
+
+          let bgTile = (x + y) % 2 === 0 ? "#1e293b" : "#334155";
+          let stroke = "#475569";
+          let strokeW = 1;
+
+          if (isGoal0) {
+            bgTile = "rgba(79, 70, 229, 0.25)";
+            stroke = "#6366f1";
+            strokeW = 3;
+          } else if (isGoal1) {
+            bgTile = "rgba(239, 68, 68, 0.25)";
+            stroke = "#f87171";
+            strokeW = 3;
+          }
+
+          if (lastMove && lastMove[2] === x && lastMove[3] === y) {
+            stroke = "#facc15";
+            strokeW = 3;
+          }
+
+          svg += `<rect x="${px}" y="${py}" width="${tileSize}" height="${tileSize}" fill="${bgTile}" stroke="${stroke}" stroke-width="${strokeW}"/>`;
+
+          if (isGoal0) {
+            svg += `<text x="${px + 25}" y="${py + 14}" fill="#a5b4fc" font-size="9" font-weight="800" text-anchor="middle">ĐÍCH A</text>`;
+          } else if (isGoal1) {
+            svg += `<text x="${px + 25}" y="${py + 44}" fill="#fca5a5" font-size="9" font-weight="800" text-anchor="middle">ĐÍCH B</text>`;
+          }
+
+          // Quân cờ
+          const piece = board.get(`${x},${y}`);
+          if (piece) {
+            const isMatchPlayerA = (game.players[piece.player] === "a");
+            const pieceColor = isMatchPlayerA ? "#4f46e5" : "#ef4444";
+            const pieceStroke = (lastMove && lastMove[2] === x && lastMove[3] === y) ? "#facc15" : "#ffffff";
+            const strokeWidth = (lastMove && lastMove[2] === x && lastMove[3] === y) ? 3 : 1;
+
+            svg += `<circle cx="${px + 25}" cy="${py + 25}" r="18" fill="${pieceColor}" stroke="${pieceStroke}" stroke-width="${strokeWidth}"/>`;
+            svg += `<text x="${px + 25}" y="${py + 31}" fill="#fff" font-size="18" text-anchor="middle">${icons[piece.type]}</text>`;
+          }
+        }
+      }
+
+      svg += "</svg>";
+      document.getElementById("svg-board-container").innerHTML = svg;
+      updateSliderMax();
+    }
+
+    // --- REPLAY PLAYBACK CONTROLS (KHI XEM LẠI) ---
+    function replayTogglePlay() {
+      if (replayTimer) {
+        stopReplay();
+      } else {
+        const game = currentMatchGames[currentGameIndex];
+        if (!game || !game.moves) return;
+        if (currentStep >= game.moves.length) currentStep = 0;
+
+        document.getElementById("btn-replay-play").textContent = "⏸️ Tạm Dừng";
+        replayTimer = setInterval(() => {
+          if (currentStep >= game.moves.length) {
+            stopReplay();
+            return;
+          }
+          currentStep++;
+          drawBoardFromState();
+        }, playSpeed);
+      }
+    }
+
+    function stopReplay() {
+      if (replayTimer) {
+        clearInterval(replayTimer);
+        replayTimer = null;
+      }
+      const btn = document.getElementById("btn-replay-play");
+      if (btn) btn.textContent = "▶️ Phát Tự Động";
+    }
+
+    function replayNext() {
+      stopReplay();
+      const game = currentMatchGames[currentGameIndex];
+      if (!game || !game.moves) return;
+      if (currentStep < game.moves.length) {
+        currentStep++;
+        drawBoardFromState();
+      }
+    }
+
+    function replayPrev() {
+      stopReplay();
+      if (currentStep > 0) {
+        currentStep--;
+        drawBoardFromState();
+      }
+    }
+
+    function replayGotoFirst() {
+      stopReplay();
+      currentStep = 0;
+      drawBoardFromState();
+    }
+
+    function replayGotoLast() {
+      stopReplay();
+      const game = currentMatchGames[currentGameIndex];
+      if (game && game.moves) currentStep = game.moves.length;
+      drawBoardFromState();
+    }
+
+    function onSliderMove() {
+      stopReplay();
+      currentStep = Number(document.getElementById("replay-range").value);
+      drawBoardFromState();
+    }
+
+    // =========================================================================
+    // 👤 AUTH
+    // =========================================================================
+    async function doLogin() {
+      const u = document.getElementById("login-user").value.trim();
+      const p = document.getElementById("login-pass").value;
+      if (!u || !p) return showToast("Vui lòng điền đủ username và mật khẩu", true);
+
+      try {
+        const res = await fetch("/finals/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: u, password: p })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          token = data.token;
+          localStorage.setItem("finals_token", token);
+          showToast("Đăng nhập thành công!");
+          checkMe();
+        } else {
+          showToast(data.error || "Đăng nhập thất bại", true);
+        }
+      } catch (err) {
+        showToast("Lỗi kết nối: " + err.message, true);
+      }
+    }
+
+    async function checkMe() {
+      if (!token) {
+        document.getElementById("login-section").style.display = "block";
+        document.getElementById("logged-section").style.display = "none";
+        document.getElementById("user-badge").textContent = "Chưa đăng nhập";
+        return;
+      }
+      try {
+        const res = await fetch("/finals/me", {
+          headers: { "X-Finals-Token": token }
+        });
+        const data = await res.json();
+        if (data.ok && data.user) {
+          document.getElementById("login-section").style.display = "none";
+          document.getElementById("logged-section").style.display = "block";
+          document.getElementById("me-username").textContent = data.user.username;
+          document.getElementById("me-display").textContent = data.user.display_name;
+          document.getElementById("me-student-id").textContent = data.user.student_id || "(chưa có)";
+          document.getElementById("user-badge").textContent = "👤 " + data.user.display_name + " (" + data.user.username + ")";
+        } else {
+          token = "";
+          localStorage.removeItem("finals_token");
+          checkMe();
+        }
+      } catch (_) {}
+    }
+
+    async function doLogout() {
+      if (token) {
+        await fetch("/finals/auth/logout", {
+          method: "POST",
+          headers: { "X-Finals-Token": token }
+        });
+      }
+      token = "";
+      localStorage.removeItem("finals_token");
+      showToast("Đã đăng xuất");
+      checkMe();
+    }
+
+    // =========================================================================
+    // ⚙️ ADMIN
+    // =========================================================================
+    function getAdminSecret() {
+      const inputEl = document.getElementById("admin-secret");
+      if (inputEl && inputEl.value.trim()) {
+        adminSecret = inputEl.value.trim();
+        localStorage.setItem("finals_admin_secret", adminSecret);
+      }
+      return adminSecret || "btc_admin_secret_2026";
+    }
+
+    function saveAdminSecret() {
+      adminSecret = getAdminSecret();
+      document.getElementById("admin-status").textContent = "Đã lưu Secret!";
+      setTimeout(() => { document.getElementById("admin-status").textContent = ""; }, 2000);
+      loadContestants();
+    }
+
+    async function createMatch() {
+      const pa = document.getElementById("match-player-a").value.trim();
+      const pb = document.getElementById("match-player-b").value.trim();
+      const rid = document.getElementById("match-request-id").value.trim() || undefined;
+      const liveDelay = Number(document.getElementById("select-live-delay").value);
+      const shouldAutoLive = document.getElementById("check-auto-live").checked;
+      const sec = getAdminSecret();
+
+      if (!pa || !pb) return showToast("Cần nhập cả thí sinh A và B", true);
+
+      try {
+        const res = await fetch("/finals/matches", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Secret": sec
+          },
+          body: JSON.stringify({
+            player_a: pa,
+            player_b: pb,
+            request_id: rid,
+            live_delay: liveDelay
+          })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(`Đã đẩy trận ${pa} vs ${pb} vào Queue!`);
+          loadMatches();
+          loadQueue();
+
+          // TỰ ĐỘNG CHUYỂN SANG XEM LIVE STREAM THỜI GIAN THỰC
+          if (shouldAutoLive) {
+            watchMatchLive(data.request_id, pa, pb);
+          }
+        } else {
+          showToast(data.error || "Không thể tạo trận", true);
+        }
+      } catch (err) {
+        showToast("Lỗi: " + err.message, true);
+      }
+    }
+
+    async function addContestant() {
+      const u = document.getElementById("new-user").value.trim();
+      const p = document.getElementById("new-pass").value;
+      const d = document.getElementById("new-display").value.trim();
+      const s = document.getElementById("new-sid").value.trim() || null;
+
+      if (!u || !p || !d) return showToast("Vui lòng điền đủ Username, Password, Họ Tên", true);
+
+      const sec = getAdminSecret();
+      try {
+        const res = await fetch("/finals/admin/contestants", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Secret": sec
+          },
+          body: JSON.stringify({ username: u, password: p, display_name: d, student_id: s })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(`Đã thêm thí sinh ${u} vào PostgreSQL!`);
+          document.getElementById("new-user").value = "";
+          document.getElementById("new-pass").value = "";
+          document.getElementById("new-display").value = "";
+          document.getElementById("new-sid").value = "";
+          loadContestants();
+        } else {
+          showToast(data.error || "Lỗi thêm thí sinh", true);
+        }
+      } catch (err) {
+        showToast("Lỗi: " + err.message, true);
+      }
+    }
+
+    async function loadContestants() {
+      const sec = getAdminSecret();
+      try {
+        const res = await fetch("/finals/admin/contestants", {
+          headers: {
+            "X-Admin-Secret": sec
+          }
+        });
+        const data = await res.json();
+        const tbody = document.getElementById("contestants-body");
+        tbody.innerHTML = "";
+        if (!data.ok || !data.contestants || data.contestants.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--text-muted)">Chưa có thí sinh nào trong CSDL</td></tr>';
+          return;
+        }
+        data.contestants.forEach(c => {
+          tbody.innerHTML += `
+            <tr>
+              <td><strong>${c.username}</strong></td>
+              <td>${c.display_name}</td>
+              <td>${c.student_id || '-'}</td>
+              <td style="color:var(--text-muted); font-size:0.8rem;">${new Date(c.created_at).toLocaleDateString()}</td>
+              <td>
+                <button class="btn btn-secondary btn-sm" onclick="snapshotBot('${c.username}')">Chốt Bot</button>
+              </td>
+            </tr>
+          `;
+        });
+      } catch (err) {
+        showToast("Lỗi tải thí sinh: " + err.message, true);
+      }
+    }
+
+    async function snapshotBot(username) {
+      const sec = getAdminSecret();
+      try {
+        const res = await fetch("/finals/admin/bots/snapshot", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Secret": sec
+          },
+          body: JSON.stringify({ username })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          showToast(`Đã chốt bot cho ${username} thành công!`);
+        } else {
+          showToast(data.error || "Lỗi chốt bot", true);
+        }
+      } catch (err) {
+        showToast("Lỗi: " + err.message, true);
+      }
+    }
+
+    // Khởi chạy khi load trang
+    loadStandings();
+    loadMatches();
+    checkMe();
+  </script>
+</body>
+</html>
