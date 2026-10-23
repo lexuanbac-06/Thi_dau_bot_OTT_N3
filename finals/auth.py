@@ -46,7 +46,7 @@ def register_contestant(username: str, plain_password: str, display_name: str, s
     try:
         db.execute(
             """INSERT INTO contestants(username, password, display_name, student_id)
-               VALUES (%s, %s, %s, %s)""",
+               VALUES (?, ?, ?, ?)""",
             (username, hashed, display_name, student_id),
         )
     except Exception as e:
@@ -62,7 +62,7 @@ def register_contestant(username: str, plain_password: str, display_name: str, s
 def login(username: str, plain_password: str) -> str:
     """Kiểm tra thông tin đăng nhập, trả về session token nếu hợp lệ."""
     row = db.fetchone(
-        "SELECT password, display_name FROM contestants WHERE username=%s",
+        "SELECT password, display_name FROM contestants WHERE username=?",
         (username,),
     )
     if row is None or not check_password(plain_password, row["password"]):
@@ -70,9 +70,9 @@ def login(username: str, plain_password: str) -> str:
         raise PermissionError("Sai tên đăng nhập hoặc mật khẩu")
 
     token = secrets.token_hex(32)
-    expires = datetime.now(timezone.utc) + timedelta(hours=SESSION_TTL_HOURS)
+    expires = (datetime.now(timezone.utc) + timedelta(hours=SESSION_TTL_HOURS)).isoformat()
     db.execute(
-        "INSERT INTO sessions(token, username, expires_at) VALUES (%s, %s, %s)",
+        "INSERT INTO sessions(token, username, expires_at) VALUES (?, ?, ?)",
         (token, username, expires),
     )
     logger.info("[AUTH] Đăng nhập thành công: %s", username)
@@ -80,7 +80,7 @@ def login(username: str, plain_password: str) -> str:
 
 
 def logout(token: str) -> None:
-    db.execute("DELETE FROM sessions WHERE token=%s", (token,))
+    db.execute("DELETE FROM sessions WHERE token=?", (token,))
     logger.info("[AUTH] Đăng xuất token ...%s", token[-8:])
 
 
@@ -91,7 +91,7 @@ def get_session(token: str) -> dict | None:
     row = db.fetchone(
         """SELECT s.username, c.display_name, c.student_id
            FROM sessions s JOIN contestants c USING(username)
-           WHERE s.token=%s AND s.expires_at > now()""",
+           WHERE s.token=? AND datetime(s.expires_at) > CURRENT_TIMESTAMP""",
         (token,),
     )
     return row  # None nếu không tìm thấy
@@ -101,7 +101,7 @@ def purge_expired_sessions() -> int:
     """Xoá session đã hết hạn (dùng cho maintenance job định kỳ)."""
     with db.conn() as c:
         with c.cursor() as cur:
-            cur.execute("DELETE FROM sessions WHERE expires_at <= now()")
+            cur.execute("DELETE FROM sessions WHERE datetime(expires_at) <= CURRENT_TIMESTAMP")
             n = cur.rowcount
         c.commit()
     if n:
@@ -119,5 +119,5 @@ def list_contestants() -> list[dict]:
 
 
 def delete_contestant(username: str) -> None:
-    db.execute("DELETE FROM contestants WHERE username=%s", (username,))
+    db.execute("DELETE FROM contestants WHERE username=?", (username,))
     logger.info("[AUTH] Xoá sinh viên: %s", username)

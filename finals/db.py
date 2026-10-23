@@ -1,134 +1,107 @@
 """
 finals/db.py
 ------------
-Kết nối PostgreSQL cho vòng chung kết.
-Đọc cấu hình từ biến môi trường (hoặc file .env).
-
-Biến môi trường cần thiết:
-  FINALS_DB_HOST     (mặc định: localhost)
-  FINALS_DB_PORT     (mặc định: 5432)
-  FINALS_DB_NAME     (mặc định: finals)
-  FINALS_DB_USER     (mặc định: postgres)
-  FINALS_DB_PASSWORD (bắt buộc)
+Kết nối SQLite cho vòng chung kết.
+Đường dẫn database được cấu hình qua FINALS_DB_PATH.
 """
 import logging
 import os
-import time
-
-import psycopg2
-import psycopg2.extras
-import psycopg2.pool
+import sqlite3
 
 logger = logging.getLogger("finals.db")
 
-# ---------------------------------------------------------------------------
-# Cấu hình kết nối
-# ---------------------------------------------------------------------------
-_DSN = dict(
-    host=os.environ.get("FINALS_DB_HOST", "localhost"),
-    port=int(os.environ.get("FINALS_DB_PORT", 5432)),
-    dbname=os.environ.get("FINALS_DB_NAME", "finals"),
-    user=os.environ.get("FINALS_DB_USER", "postgres"),
-    password=os.environ.get("FINALS_DB_PASSWORD", ""),
-    connect_timeout=10,
+DB_PATH = os.environ.get(
+    "FINALS_DB_PATH",
+    os.path.join(os.path.dirname(__file__), "finals.db"),
 )
-
-_pool: psycopg2.pool.ThreadedConnectionPool | None = None
-
-
-def init_pool(minconn: int = 2, maxconn: int = 20) -> None:
-    """Khởi tạo connection pool. Gọi 1 lần khi app khởi động."""
-    global _pool
-    logger.info(
-        "[DB] Kết nối PostgreSQL %s:%s/%s user=%s",
-        _DSN["host"], _DSN["port"], _DSN["dbname"], _DSN["user"],
-    )
-    _pool = psycopg2.pool.ThreadedConnectionPool(minconn, maxconn, **_DSN)
-    logger.info("[DB] Pool khởi tạo thành công (min=%d max=%d)", minconn, maxconn)
+if DB_PATH != ":memory:" and not os.path.isabs(DB_PATH):
+    DB_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", DB_PATH))
+_initialized = False
 
 
-def get_conn():
-    """Lấy connection từ pool (thread-safe)."""
-    if _pool is None:
-        raise RuntimeError("DB pool chưa được khởi tạo. Gọi db.init_pool() trước.")
-    return _pool.getconn()
+def init() -> None:
+    """Chuẩn bị thư mục và kiểm tra kết nối database."""
+    global _initialized
+    if DB_PATH != ":memory:":
+        os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
+    connection = _connect()
+    try:
+        connection.execute("PRAGMA journal_mode = WAL")
+    finally:
+        connection.close()
+    _initialized = True
+    logger.info("[DB] SQLite sẵn sàng: %s", DB_PATH)
 
 
-def put_conn(conn) -> None:
-    """Trả connection về pool."""
-    if _pool is not None:
-        _pool.putconn(conn)
+def _connect() -> sqlite3.Connection:
+    connection = sqlite3.connect(DB_PATH, timeout=10)
+    connection.row_factory = sqlite3.Row
+    connection.execute("PRAGMA foreign_keys = ON")
+    connection.execute("PRAGMA busy_timeout = 10000")
+    return connection
 
 
 class _Conn:
-    """Context-manager: tự trả connection về pool sau khi dùng."""
-    def __enter__(self):
-        self._conn = get_conn()
+    """Mở và tự đóng một SQLite connection cho mỗi thao tác."""
+
+    def __enter__(self) -> sqlite3.Connection:
+        if not _initialized:
+            raise RuntimeError("SQLite chưa được khởi tạo. Gọi db.init() trước.")
+        self._conn = _connect()
         return self._conn
 
     def __exit__(self, exc_type, *_):
         if exc_type:
-            try:
-                self._conn.rollback()
-            except Exception:
-                pass
-        put_conn(self._conn)
+            self._conn.rollback()
+        self._conn.close()
 
 
 def conn() -> _Conn:
     return _Conn()
 
 
-# ---------------------------------------------------------------------------
-# Schema
-# ---------------------------------------------------------------------------
 SCHEMA = """
--- Bảng sinh viên tham gia chung kết
 CREATE TABLE IF NOT EXISTS contestants (
-    id          SERIAL PRIMARY KEY,
-    username    TEXT UNIQUE NOT NULL,
-    password    TEXT NOT NULL,                -- bcrypt hash
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    username     TEXT UNIQUE NOT NULL,
+    password     TEXT NOT NULL,
     display_name TEXT NOT NULL,
-    student_id  TEXT UNIQUE,                  -- MSSV, tuỳ chọn
-    created_at  TIMESTAMPTZ DEFAULT now()
+    student_id   TEXT UNIQUE,
+    created_at   TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
--- Phiên đăng nhập (JWT-less, dùng session token)
 CREATE TABLE IF NOT EXISTS sessions (
-    token       TEXT PRIMARY KEY,
-    username    TEXT NOT NULL REFERENCES contestants(username) ON DELETE CASCADE,
-    created_at  TIMESTAMPTZ DEFAULT now(),
-    expires_at  TIMESTAMPTZ NOT NULL
+    token      TEXT PRIMARY KEY,
+    username   TEXT NOT NULL REFERENCES contestants(username) ON DELETE CASCADE,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    expires_at TEXT NOT NULL
 );
 
--- Danh sách cặp đấu chung kết
 CREATE TABLE IF NOT EXISTS matches (
-    id          SERIAL PRIMARY KEY,
-    request_id  TEXT UNIQUE NOT NULL,         -- UUID gửi từ client để idempotent
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id  TEXT UNIQUE NOT NULL,
     player_a    TEXT NOT NULL REFERENCES contestants(username),
     player_b    TEXT NOT NULL REFERENCES contestants(username),
-    status      TEXT NOT NULL DEFAULT 'pending',  -- pending | running | done | failed
-    score_a     INT,
-    score_b     INT,
+    status      TEXT NOT NULL DEFAULT 'pending',
+    score_a     INTEGER,
+    score_b     INTEGER,
     winner      TEXT,
-    created_at  TIMESTAMPTZ DEFAULT now(),
-    started_at  TIMESTAMPTZ,
-    finished_at TIMESTAMPTZ,
+    created_at  TEXT DEFAULT CURRENT_TIMESTAMP,
+    started_at  TEXT,
+    finished_at TEXT,
     error_msg   TEXT,
-    replay      JSONB
+    replay      TEXT
 );
 
--- Bảng điểm tổng (tích luỹ)
 CREATE TABLE IF NOT EXISTS standings (
-    username    TEXT PRIMARY KEY REFERENCES contestants(username),
-    wins        INT DEFAULT 0,
-    losses      INT DEFAULT 0,
-    draws       INT DEFAULT 0,
-    points      INT DEFAULT 0,
-    updated_at  TIMESTAMPTZ DEFAULT now()
+    username   TEXT PRIMARY KEY REFERENCES contestants(username),
+    wins       INTEGER DEFAULT 0,
+    losses     INTEGER DEFAULT 0,
+    draws      INTEGER DEFAULT 0,
+    points     INTEGER DEFAULT 0,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
--- Index
 CREATE INDEX IF NOT EXISTS idx_matches_status ON matches(status);
 CREATE INDEX IF NOT EXISTS idx_sessions_username ON sessions(username);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
@@ -137,41 +110,30 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
 
 def migrate() -> None:
     """Chạy schema DDL (idempotent — an toàn khi gọi nhiều lần)."""
-    with conn() as c:
-        with c.cursor() as cur:
-            cur.execute(SCHEMA)
-        c.commit()
+    with conn() as connection:
+        connection.executescript(SCHEMA)
     logger.info("[DB] Schema migration hoàn tất.")
 
 
-# ---------------------------------------------------------------------------
-# Helper query
-# ---------------------------------------------------------------------------
 def fetchone(sql: str, params=()) -> dict | None:
-    with conn() as c:
-        with c.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql, params)
-            row = cur.fetchone()
+    with conn() as connection:
+        row = connection.execute(sql, params).fetchone()
     return dict(row) if row else None
 
 
 def fetchall(sql: str, params=()) -> list[dict]:
-    with conn() as c:
-        with c.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql, params)
-            rows = cur.fetchall()
-    return [dict(r) for r in rows]
+    with conn() as connection:
+        rows = connection.execute(sql, params).fetchall()
+    return [dict(row) for row in rows]
 
 
 def execute(sql: str, params=()) -> None:
-    with conn() as c:
-        with c.cursor() as cur:
-            cur.execute(sql, params)
-        c.commit()
+    with conn() as connection:
+        connection.execute(sql, params)
+        connection.commit()
 
 
 def executemany(sql: str, rows: list) -> None:
-    with conn() as c:
-        with c.cursor() as cur:
-            psycopg2.extras.execute_batch(cur, sql, rows)
-        c.commit()
+    with conn() as connection:
+        connection.executemany(sql, rows)
+        connection.commit()

@@ -21,6 +21,18 @@
 
 Chi tiết quy tắc và ngoại lệ: [docs/TOURNAMENT_OPERATIONS.md](docs/TOURNAMENT_OPERATIONS.md).
 
+## Giao diện vòng chung kết độc lập
+
+Giao diện quản lý và xem trực tiếp vòng chung kết dùng React/TypeScript, được Flask phục vụ từ `frontend/dist`. Chạy các lệnh sau trong PowerShell từ thư mục gốc dự án. Dùng `npm.cmd` để tránh lỗi Execution Policy chặn script `npm.ps1`:
+
+```powershell
+npm.cmd --prefix frontend ci
+npm.cmd --prefix frontend run build
+python -m finals.run_server
+```
+
+Mở `http://localhost:9000/`. Backend chung kết dùng SQLite riêng; đây là dịch vụ độc lập, không thay đổi nguồn dữ liệu Supabase của giải đấu chính. Nếu chỉ cần build lại sau lần cài dependency đầu tiên, chạy `npm.cmd --prefix frontend run build`.
+
 ## Triển khai schema Supabase
 
 Chạy SQL Editor theo thứ tự `0001` → `0002` → `0003` → `0004` → `0005` → `0006` → `0007`. Migration `0004` đã được áp dụng trước; `0005`–`0007` cần chạy để dùng giao diện admin, điều hành giải và lịch sử/replay mới. Hướng dẫn biến môi trường: [data/SUPABASE_SETUP.md](data/SUPABASE_SETUP.md).

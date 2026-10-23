@@ -21,8 +21,6 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from typing import Optional
 
-import psycopg2.extras
-
 from . import db
 # engine nằm ở thư mục gốc → import từ thư mục cha
 import sys
@@ -188,7 +186,7 @@ def _run_match(task: dict) -> None:
 # ---------------------------------------------------------------------------
 def _mark_running(match_id: int) -> None:
     db.execute(
-        "UPDATE matches SET status='running', started_at=now() WHERE id=%s",
+        "UPDATE matches SET status='running', started_at=CURRENT_TIMESTAMP WHERE id=?",
         (match_id,),
     )
 
@@ -197,16 +195,16 @@ def _save_result(match_id: int, score_a: int, score_b: int, winner: str | None, 
     import json
     db.execute(
         """UPDATE matches
-           SET status='done', score_a=%s, score_b=%s, winner=%s,
-               finished_at=now(), replay=%s
-           WHERE id=%s""",
+           SET status='done', score_a=?, score_b=?, winner=?,
+               finished_at=CURRENT_TIMESTAMP, replay=?
+           WHERE id=?""",
         (score_a, score_b, winner, json.dumps(games), match_id),
     )
 
 
 def _mark_failed(match_id: int, error_msg: str) -> None:
     db.execute(
-        "UPDATE matches SET status='failed', finished_at=now(), error_msg=%s WHERE id=%s",
+        "UPDATE matches SET status='failed', finished_at=CURRENT_TIMESTAMP, error_msg=? WHERE id=?",
         (error_msg, match_id),
     )
 
@@ -215,13 +213,13 @@ def _update_standings(player_a: str, player_b: str, score: int) -> None:
     """Cập nhật bảng standings sau mỗi trận (dùng UPSERT)."""
     upsert = """
         INSERT INTO standings(username, wins, losses, draws, points)
-        VALUES (%s, %s, %s, %s, %s)
+        VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(username) DO UPDATE
         SET wins   = standings.wins   + EXCLUDED.wins,
             losses = standings.losses + EXCLUDED.losses,
             draws  = standings.draws  + EXCLUDED.draws,
             points = standings.points + EXCLUDED.points,
-            updated_at = now()
+            updated_at = CURRENT_TIMESTAMP
     """
     if score > 0:
         rows = [(player_a, 1, 0, 0, 3), (player_b, 0, 1, 0, 0)]
@@ -253,7 +251,7 @@ def enqueue_match(
 
     # Idempotency check
     existing = db.fetchone(
-        "SELECT id, status, request_id FROM matches WHERE request_id=%s",
+        "SELECT id, status, request_id FROM matches WHERE request_id=?",
         (request_id,),
     )
     if existing:
@@ -262,7 +260,7 @@ def enqueue_match(
 
     # Kiểm tra player tồn tại
     for uname in (player_a, player_b):
-        if not db.fetchone("SELECT 1 FROM contestants WHERE username=%s", (uname,)):
+        if not db.fetchone("SELECT 1 FROM contestants WHERE username=?", (uname,)):
             raise ValueError(f"Không tìm thấy thí sinh: {uname}")
 
     # Tạo record DB
@@ -270,10 +268,10 @@ def enqueue_match(
         with c.cursor() as cur:
             cur.execute(
                 """INSERT INTO matches(request_id, player_a, player_b, status)
-                   VALUES (%s, %s, %s, 'pending') RETURNING id""",
+                   VALUES (?, ?, ?, 'pending')""",
                 (request_id, player_a, player_b),
             )
-            match_id = cur.fetchone()[0]
+            match_id = cur.lastrowid
         c.commit()
 
     task = {
@@ -290,7 +288,7 @@ def enqueue_match(
     try:
         _task_queue.put_nowait(task)
     except queue.Full:
-        db.execute("UPDATE matches SET status='failed', error_msg='Queue đầy' WHERE id=%s", (match_id,))
+        db.execute("UPDATE matches SET status='failed', error_msg='Queue đầy' WHERE id=?", (match_id,))
         raise RuntimeError("Hàng đợi trận đấu đầy. Vui lòng thử lại sau.")
 
     queue_size = _task_queue.qsize()
@@ -307,7 +305,7 @@ def get_match_status(request_id: str) -> dict | None:
         """SELECT id, request_id, player_a, player_b, status,
                   score_a, score_b, winner, error_msg,
                   created_at, started_at, finished_at
-           FROM matches WHERE request_id=%s""",
+           FROM matches WHERE request_id=?""",
         (request_id,),
     )
     return row
@@ -320,7 +318,7 @@ def get_match_replay(request_id: str) -> dict | None:
         """SELECT id, request_id, player_a, player_b, status,
                   score_a, score_b, winner, error_msg,
                   created_at, started_at, finished_at, replay
-           FROM matches WHERE request_id=%s""",
+           FROM matches WHERE request_id=?""",
         (request_id,),
     )
     if row and row.get("replay"):

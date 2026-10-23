@@ -210,3 +210,10 @@ RuntimeError: DB pool chưa được khởi tạo. Gọi db.init_pool() trước
 2026-10-20 23:58:16 INFO    finals.runner            [RUNNER] Đã enqueue: bot_beta vs bot_alpha | request_id=c4f55297-49f3-44c9-a012-e63e59da7ff4 match_id=4 queue_size=1
 2026-10-20 23:58:16 INFO    finals.runner            [MATCH:c4f55297-49f3-44c9-a012-e63e59da7ff4] Bắt đầu: bot_beta vs bot_alpha (live_delay=0.40s)
 2026-10-20 23:58:16 DEBUG   finals.live              [LIVE:c4f55297-49f3-44c9-a012-e63e59da7ff4] Khách mới kết nối stream (tổng: 1)
+2026-10-23 15:26:17 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\logs\finals.log
+2026-10-23 15:26:17 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-23 15:26:17 INFO    finals.db                [DB] SQLite sẵn sàng: C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\finals.db
+2026-10-23 15:26:17 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-23 15:26:17 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-23 15:26:17 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-23 15:26:17 INFO    finals.app               [APP] Sẵn sàng.

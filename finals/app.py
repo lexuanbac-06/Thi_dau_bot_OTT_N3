@@ -4,8 +4,7 @@ finals/app.py
 Flask backend độc lập cho vòng chung kết.
 
 Chạy:
-  # Cần có PostgreSQL và các biến môi trường
-  set FINALS_DB_PASSWORD=matkhau
+  # SQLite được tạo tự động tại finals/finals.db
   set FINALS_ADMIN_SECRET=adminpass
   python -m finals.app
 
@@ -33,7 +32,7 @@ import os
 import sys
 import secrets
 
-from flask import Flask, request, jsonify, g, render_template, Response
+from flask import Flask, request, jsonify, g, Response, send_from_directory
 import json
 import queue
 
@@ -46,13 +45,17 @@ setup_logging(_log_level)
 from . import db, auth, match_runner, live_manager
 
 logger = logging.getLogger("finals.app")
+FRONTEND_DIST_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+)
 
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
 app = Flask(
     __name__,
-    template_folder=os.path.join(os.path.dirname(__file__), "templates"),
+    static_folder=os.path.join(FRONTEND_DIST_DIR, "assets"),
+    static_url_path="/assets",
 )
 
 ADMIN_SECRET = os.environ.get("FINALS_ADMIN_SECRET", "")
@@ -65,7 +68,7 @@ FINALS_SNAP_DIR = os.path.join(os.path.dirname(__file__), "..", "snaps", "finals
 # ---------------------------------------------------------------------------
 def startup() -> None:
     logger.info("[APP] Khởi động backend chung kết...")
-    db.init_pool()
+    db.init()
     db.migrate()
     match_runner.start()
     os.makedirs(FINALS_SNAP_DIR, exist_ok=True)
@@ -122,11 +125,12 @@ def handle_error(e):
 
 
 @app.get("/")
+@app.get("/finals")
 def home():
-    """Giao diện web trực quan cho vòng chung kết."""
+    """Phục vụ frontend React đã build cho vòng chung kết."""
     if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
         return api_info()
-    return render_template("finals.html")
+    return send_from_directory(FRONTEND_DIST_DIR, "finals.html")
 
 
 @app.get("/finals/api")
@@ -283,14 +287,14 @@ def list_matches():
         rows = db.fetchall(
             """SELECT id, request_id, player_a, player_b, status, score_a, score_b, winner,
                       created_at, started_at, finished_at, error_msg
-               FROM matches WHERE status=%s ORDER BY id DESC LIMIT %s OFFSET %s""",
+               FROM matches WHERE status=? ORDER BY id DESC LIMIT ? OFFSET ?""",
             (status_filter, per_page, offset),
         )
     else:
         rows = db.fetchall(
             """SELECT id, request_id, player_a, player_b, status, score_a, score_b, winner,
                       created_at, started_at, finished_at, error_msg
-               FROM matches ORDER BY id DESC LIMIT %s OFFSET %s""",
+               FROM matches ORDER BY id DESC LIMIT ? OFFSET ?""",
             (per_page, offset),
         )
     total = db.fetchone("SELECT count(*) n FROM matches")

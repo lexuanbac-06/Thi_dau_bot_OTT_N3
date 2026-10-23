@@ -1,10 +1,9 @@
 """
 finals/tests/test_runner_mock.py
 ---------------------------------
-Unit test cơ bản cho match_runner và auth (dùng mock DB, không cần PostgreSQL thật).
+Unit test cơ bản cho match_runner và auth (dùng mock DB).
 Chạy: pytest finals/tests/test_runner_mock.py -v
 """
-import importlib
 import sys
 import types
 import uuid
@@ -13,18 +12,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 # ---------------------------------------------------------------------------
-# Mock psycopg2 TRƯỚC khi import bất cứ thứ gì từ finals
-# ---------------------------------------------------------------------------
-pg_mock = types.ModuleType("psycopg2")
-pg_mock.extras = types.ModuleType("psycopg2.extras")
-pg_mock.pool = types.ModuleType("psycopg2.pool")
-pg_mock.pool.ThreadedConnectionPool = MagicMock()
-pg_mock.extras.RealDictCursor = MagicMock()
-pg_mock.extras.execute_batch = MagicMock()
-sys.modules.setdefault("psycopg2", pg_mock)
-sys.modules.setdefault("psycopg2.extras", pg_mock.extras)
-sys.modules.setdefault("psycopg2.pool", pg_mock.pool)
-
 bcrypt_mock = types.ModuleType("bcrypt")
 bcrypt_mock.hashpw = lambda p, s: p + b"_hashed"
 bcrypt_mock.gensalt = lambda: b"salt"
@@ -49,7 +36,7 @@ class TestMatchRunnerUnit:
             mock_cursor = MagicMock()
             mock_cursor.__enter__ = MagicMock(return_value=mock_cursor)
             mock_cursor.__exit__ = MagicMock(return_value=False)
-            mock_cursor.fetchone.return_value = (42,)    # match_id = 42
+            mock_cursor.lastrowid = 42
             mock_conn.__enter__ = MagicMock(return_value=mock_conn)
             mock_conn.__exit__ = MagicMock(return_value=False)
             mock_conn.cursor = MagicMock(return_value=mock_cursor)

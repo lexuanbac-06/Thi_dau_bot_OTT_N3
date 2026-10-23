@@ -1,0 +1,73 @@
+import os
+import sqlite3
+import tempfile
+import unittest
+
+from finals import db
+
+
+class TestSQLiteDatabase(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.previous_path = db.DB_PATH
+        self.previous_initialized = db._initialized
+        db.DB_PATH = os.path.join(self.temp_dir.name, "finals.db")
+        db._initialized = False
+        db.init()
+        db.migrate()
+
+    def tearDown(self):
+        db.DB_PATH = self.previous_path
+        db._initialized = self.previous_initialized
+        self.temp_dir.cleanup()
+
+    def test_schema_and_crud_work_with_sqlite(self):
+        db.migrate()
+        db.executemany(
+            "INSERT INTO contestants(username, password, display_name) VALUES (?, ?, ?)",
+            [("alice", "hash", "Alice"), ("bob", "hash", "Bob")],
+        )
+
+        with db.conn() as connection:
+            cursor = connection.execute(
+                """INSERT INTO matches(request_id, player_a, player_b)
+                   VALUES (?, ?, ?)""",
+                ("request-1", "alice", "bob"),
+            )
+            match_id = cursor.lastrowid
+            connection.commit()
+
+        db.execute(
+            """UPDATE matches
+               SET status='done', score_a=?, score_b=?, replay=?
+               WHERE id=?""",
+            (2, 0, '[{"moves": []}]', match_id),
+        )
+        db.executemany(
+            """INSERT INTO standings(username, wins, losses, draws, points)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(username) DO UPDATE
+               SET wins=standings.wins+excluded.wins""",
+            [("alice", 1, 0, 0, 3), ("bob", 0, 1, 0, 0)],
+        )
+
+        match = db.fetchone(
+            "SELECT status, replay FROM matches WHERE request_id=?",
+            ("request-1",),
+        )
+        self.assertEqual(match["status"], "done")
+        self.assertEqual(match["replay"], '[{"moves": []}]')
+        self.assertEqual(
+            db.fetchone("SELECT points FROM standings WHERE username=?", ("alice",))["points"],
+            3,
+        )
+        with self.assertRaises(sqlite3.IntegrityError):
+            db.execute(
+                """INSERT INTO matches(request_id, player_a, player_b)
+                   VALUES (?, ?, ?)""",
+                ("invalid-request", "missing", "bob"),
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()
