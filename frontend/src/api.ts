@@ -3,129 +3,77 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://etrvnyvmqkgdfujolref.supabase.co';
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV0cnZueXZtcWtnZGZ1am9scmVmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIzMDc1NTUsImV4cCI6MjEwNzg4MzU1NX0.J9oh0x4-PJK7yEIjIQa14pK4jduwTyrR36fgNTtEBvA';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+export const supabase = createClient(
+  SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || SUPABASE_ANON_KEY,
+);
 
-const DEFAULT_SCORING_MODULE_URL = (import.meta.env.VITE_SCORING_MODULE_URL || '').replace(/\/$/, '');
-const SCORING_URL_STORAGE_KEY = 'ott.scoring_module_url';
+const DEFAULT_SCORING_PROXY_URL = (import.meta.env.VITE_SCORING_PROXY_URL || '').replace(/\/$/, '');
 
-export function getSavedScoringUrl(): string {
-  if (typeof localStorage === 'undefined') return DEFAULT_SCORING_MODULE_URL;
-  return localStorage.getItem(SCORING_URL_STORAGE_KEY) || DEFAULT_SCORING_MODULE_URL;
+export function getScoringProxyUrl(): string {
+  return DEFAULT_SCORING_PROXY_URL;
 }
 
-export function saveScoringUrl(value: string) {
-  if (typeof localStorage === 'undefined') return;
-  if (value.trim()) localStorage.setItem(SCORING_URL_STORAGE_KEY, value.trim().replace(/\/+$/, ''));
-  else localStorage.removeItem(SCORING_URL_STORAGE_KEY);
-}
-
-function normalizeScoringUrl(value: string): string {
-  const url = new URL(value.trim());
-  const localHttp = url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname);
-  if (url.protocol !== 'https:' && !localHttp) throw new Error('URL máy chấm phải dùng HTTPS (HTTP chỉ dùng cho localhost).');
-  if (url.username || url.password || url.search || url.hash) throw new Error('URL máy chấm không được chứa tài khoản, query hoặc fragment.');
-  return url.toString().replace(/\/+$/, '');
-}
-
-export async function probeScoringServer(value: string, timeoutMs = 5000): Promise<{ ok: boolean; service?: string }> {
-  let base: string;
-  try {
-    base = normalizeScoringUrl(value);
-  } catch {
-    throw new Error('Hãy nhập URL đầy đủ, ví dụ https://score.tenmiencuaban.vn.');
-  }
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(`${base}/v1/health`, { signal: controller.signal, cache: 'no-store' });
-    if (!response.ok) throw new Error(`Máy chấm trả HTTP ${response.status}.`);
-    const payload = await response.json().catch(() => null);
-    if (!payload?.ok) throw new Error('URL không trỏ tới API máy chấm hợp lệ.');
-    return payload;
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') throw new Error('Máy chấm không phản hồi trong 5 giây.');
-    if (error instanceof TypeError) throw new Error('Không thể kết nối. Kiểm tra hostname, HTTPS và CORS trên máy chấm.');
-    throw error;
-  } finally {
-    window.clearTimeout(timer);
-  }
-}
-
-export async function getScoringAdminMetrics(value: string) {
-  const base = normalizeScoringUrl(value);
+async function fetchScoringProxy(url: string, init: RequestInit): Promise<Response> {
   const token = await getAccessToken();
-  if (!token) throw new Error('Phiên đăng nhập đã hết hạn.');
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), 8000);
-  try {
-    const response = await fetch(`${base}/v1/admin/metrics`, {
-      headers: { Authorization: `Bearer ${token}` },
-      signal: controller.signal,
-      cache: 'no-store',
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(payload?.detail || `Không lấy được metrics (HTTP ${response.status}).`);
-    return payload;
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') throw new Error('Máy chấm không trả metrics trong 8 giây.');
-    if (error instanceof TypeError) throw new Error('Không kết nối được metrics; kiểm tra CORS và URL tunnel.');
-    throw error;
-  } finally {
-    window.clearTimeout(timer);
-  }
+  if (!token) throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+  const headers = new Headers(init.headers);
+  headers.set('Authorization', `Bearer ${token}`);
+  let response = await fetch(url, { ...init, headers });
+  if (response.status !== 401) return response;
+
+  // A background tab can wake with an expired access token before the
+  // Supabase client's automatic refresh timer has run. Refresh once and retry.
+  const { data, error } = await supabase.auth.refreshSession();
+  const refreshedToken = data.session?.access_token;
+  if (error || !refreshedToken) return response;
+  headers.set('Authorization', `Bearer ${refreshedToken}`);
+  response = await fetch(url, { ...init, headers });
+  return response;
 }
 
-export async function postScoringAdmin<T = Record<string, unknown>>(value: string, path: string, body?: unknown): Promise<T> {
-  const base = normalizeScoringUrl(value);
-  const token = await getAccessToken();
-  if (!token) throw new Error('Phiên đăng nhập đã hết hạn.');
-  const response = await fetch(`${base}${path}`, {
+export type ProxyScoreJob = {
+  job_id: string;
+  status: 'waiting' | 'queued' | 'running' | 'succeeded' | 'failed';
+  match_score?: number;
+  qualification_score?: number;
+  passed?: boolean;
+  match_result?: 'win' | 'loss' | 'draw';
+  games?: ReplayGame[];
+  error_code?: string;
+  error?: string;
+};
+
+export async function submitProxyScore(
+  source: string,
+  options: { matchId?: number; benchmarkCode?: string; jobId?: string },
+): Promise<ProxyScoreJob> {
+  const base = getScoringProxyUrl();
+  if (!base) throw new Error('Chưa cấu hình Cloudflare scoring proxy.');
+  const response = await fetchScoringProxy(`${base}/v1/score`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}`, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contestant_code: source,
+      match_id: options.matchId,
+      benchmark_code: options.benchmarkCode,
+      job_id: options.jobId,
+    }),
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(payload?.detail || `Cloudflare proxy trả HTTP ${response.status}.`);
+  return payload as ProxyScoreJob;
+}
+
+export async function pollProxyScore(jobId: string): Promise<ProxyScoreJob> {
+  const base = getScoringProxyUrl();
+  if (!base) throw new Error('Chưa cấu hình scoring proxy.');
+  const response = await fetchScoringProxy(`${base}/v1/score/${encodeURIComponent(jobId)}`, {
     cache: 'no-store',
   });
   const payload = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(payload?.detail || `Thao tác thất bại (HTTP ${response.status}).`);
-  return payload as T;
-}
-
-export type ScoringBenchmark = { id: string; name: string };
-
-export async function getScoringBenchmarks(value: string): Promise<ScoringBenchmark[]> {
-  const base = normalizeScoringUrl(value);
-  let response: Response;
-  try {
-    response = await fetch(`${base}/v1/benchmarks`, { cache: 'no-store' });
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw new Error('Không phân giải được URL máy chấm; hãy cập nhật tunnel trong mục Quản trị máy chấm.');
-    }
-    throw error;
-  }
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(payload?.detail || `Không tải được bot mẫu (HTTP ${response.status}).`);
-  return Array.isArray(payload?.benchmarks) ? payload.benchmarks : [];
-}
-
-export async function uploadScoringBenchmark(value: string, file: File): Promise<ScoringBenchmark> {
-  const base = normalizeScoringUrl(value);
-  const token = await getAccessToken();
-  if (!token) throw new Error('Phiên đăng nhập đã hết hạn.');
-  const form = new FormData();
-  form.append('file', file);
-  const response = await fetch(`${base}/v1/admin/benchmarks`, {
-    method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form, cache: 'no-store',
-  });
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(payload?.detail || `Không tải được bot mẫu (HTTP ${response.status}).`);
-  return payload.benchmark as ScoringBenchmark;
-}
-
-export class ApiError extends Error {
-  constructor(message: string, public status: number) {
-    super(message);
-  }
+  if (!response.ok) throw new Error(payload?.detail || `Không đọc được trạng thái chấm (HTTP ${response.status}).`);
+  return payload as ProxyScoreJob;
 }
 
 export async function getAccessToken(): Promise<string | null> {
@@ -141,91 +89,6 @@ export interface ScoringJob {
   error_message?: string | null;
 }
 
-export async function createAndDispatchScoringJob(
-  file: File,
-  kind: 'entry' | 'submission' | 'test' = 'entry',
-  scoringModuleUrl = getSavedScoringUrl(),
-  context: { round: number; day: number } | null = null,
-  benchmarkIds: string[] = [],
-): Promise<string> {
-  if (!scoringModuleUrl.trim()) throw new Error('Hãy nhập URL HTTPS của máy chấm.');
-  if (kind === 'submission' && (!context || context.round < 1 || context.day < 1)) {
-    throw new Error('Chưa có vòng/ngày thi hợp lệ để nộp bài.');
-  }
-  const baseUrl = normalizeScoringUrl(scoringModuleUrl);
-  const token = await getAccessToken();
-  if (!token) throw new Error('Phiên đăng nhập đã hết hạn');
-  await probeScoringServer(baseUrl);
-  const bytes = await file.arrayBuffer();
-  const digest = await crypto.subtle.digest('SHA-256', bytes);
-  const sha256 = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
-  const id = crypto.randomUUID();
-
-  const createJob = supabase.rpc('create_scoring_job', {
-    p_job_id: id,
-    p_kind: kind,
-    p_rnd: kind === 'submission' ? context?.round ?? null : null,
-    p_day: kind === 'submission' ? context?.day ?? null : null,
-    p_sha256: sha256,
-    p_size_bytes: file.size,
-  });
-  const body = new FormData();
-  body.append('file', file);
-  if (kind === 'test') body.append('benchmark_ids', benchmarkIds.join(','));
-  const dispatchController = new AbortController();
-  const dispatchTimer = window.setTimeout(() => dispatchController.abort(), 10_000);
-  const dispatch = fetch(`${baseUrl}/v1/jobs/${id}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
-    body,
-    signal: dispatchController.signal,
-  }).then(async response => {
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new ApiError(payload.detail || 'Máy chấm không nhận bài', response.status);
-    return payload;
-  }).finally(() => window.clearTimeout(dispatchTimer));
-
-  const [jobResult, dispatchResult] = await Promise.allSettled([createJob, dispatch]);
-  const acceptedAfterRace = async () => {
-    const { data: currentJob } = await supabase
-      .from('scoring_jobs')
-      .select('status')
-      .eq('id', id)
-      .maybeSingle();
-    return Boolean(currentJob && ['accepted', 'running', 'succeeded'].includes(currentJob.status));
-  };
-  if (jobResult.status === 'rejected' || jobResult.value.error) {
-    if (await acceptedAfterRace()) return id;
-    await supabase.rpc('fail_scoring_dispatch', { p_job_id: id });
-    if (await acceptedAfterRace()) return id;
-    const reason = jobResult.status === 'rejected' ? jobResult.reason?.message : jobResult.value.error?.message;
-    throw new Error(scoringErrorMessage(reason));
-  }
-  if (dispatchResult.status === 'rejected') {
-    if (await acceptedAfterRace()) return id;
-    await supabase.rpc('fail_scoring_dispatch', { p_job_id: id });
-    if (await acceptedAfterRace()) return id;
-    if (dispatchResult.reason?.name === 'AbortError') {
-      throw new Error('Máy chấm chưa xác nhận nhận bài trong 10 giây. Hãy kiểm tra kết nối rồi thử lại.');
-    }
-    throw dispatchResult.reason;
-  }
-  return id;
-}
-
-function scoringErrorMessage(message: string): string {
-  const known: Record<string, string> = {
-    entry_closed: 'Giai đoạn vòng loại đã đóng. Hãy tải lại trang hoặc liên hệ ban tổ chức.',
-    submission_context_stale: 'Thông tin cuộc thi chưa được đồng bộ. Vui lòng liên hệ ban tổ chức.',
-    submissions_closed: 'Ban tổ chức đang tạm đóng nhận bài.',
-    qualification_attempt_limit: 'Bạn đã dùng hết 20 lượt nộp ở giai đoạn vòng loại.',
-    already_submitted_today: 'Bạn đã gửi bot cho ngày thi này rồi.',
-    account_not_allowed: 'Tài khoản hiện không được phép tham gia cuộc thi.',
-  };
-  const key = Object.keys(known).find((candidate) => message?.includes(candidate));
-  return key ? known[key] : message || 'Không thể tạo yêu cầu chấm bài.';
-}
-
 export interface ScoringState {
   phase: 'entry' | 'round' | 'done';
   accepting: boolean;
@@ -233,7 +96,6 @@ export interface ScoringState {
   bestScore: number | null;
   round?: number | null;
   day?: number | null;
-  scoringUrl?: string | null;
 }
 
 export interface User {
@@ -265,12 +127,21 @@ export interface Standing {
 }
 
 export interface TodayMatch {
+  match_id: number;
   rnd: number;
   day: number;
   rd: number;
   grp: number;
   opponent: string;
   state: string;
+  my_submission_state: 'waiting' | 'submitting' | 'submitted' | 'late' | 'resolved';
+  opponent_submission_state: 'waiting' | 'submitting' | 'submitted' | 'late' | 'resolved';
+  submission_deadline: string | null;
+  my_match_score: number | null;
+  my_match_points: number;
+  scoring_error: string | null;
+  attempts_completed: number;
+  can_submit: boolean;
 }
 
 export async function getMyTodayMatches(): Promise<TodayMatch[]> {
@@ -347,15 +218,52 @@ export async function getSubmissionHistory(userId: string): Promise<SubmissionHi
 }
 
 export async function getReplayMetadata(round?: number, day?: number): Promise<Replays> {
-  const { data, error } = await supabase.rpc('get_my_replay_matches');
-  if (error) throw new Error(error.message);
+  const [{ data, error }, { data: authData, error: authError }] = await Promise.all([
+    supabase.rpc('get_my_replay_matches'),
+    supabase.auth.getUser(),
+  ]);
   const rows = (data || []) as Array<{ replay_id: string; replay_kind: 'match' | 'job'; rnd: number; day: number; rd: number; player_a: string; player_b: string; score_a: number; storage_path: string }>;
-  const dates = [...new Map(rows.map(row => [`${row.rnd},${row.day}`, { round: row.rnd, day: row.day }])).values()]
+  const allMatches: ReplayMatch[] = rows.map(row => ({ id: row.replay_id, kind: row.replay_kind, storagePath: row.storage_path, round: row.rnd, day: row.day, rd: row.rd, a: row.player_a, b: row.player_b, s: row.score_a, games: [] }));
+
+  // A successful qualification/practice result already contains its games.
+  // Use that owner-readable result as a fallback when replay object upload or
+  // metadata registration failed, so a scored run is still replayable.
+  if (!authError && authData.user) {
+    const { data: jobs, error: jobsError } = await supabase.from('scoring_jobs')
+      .select('id,kind,finished_at,result')
+      .eq('user_id', authData.user.id)
+      .eq('status', 'succeeded')
+      .in('kind', ['entry', 'test'])
+      .order('finished_at', { ascending: true });
+    if (!jobsError) {
+      let jobIndex = 0;
+      for (const job of jobs || []) {
+        const games = Array.isArray(job.result?.games) ? job.result.games as ReplayGame[] : [];
+        if (!games.length) continue;
+        const storedReplay = allMatches.find(match => match.kind === 'job' && String(match.id) === String(job.id));
+        if (storedReplay) {
+          storedReplay.games = games;
+          continue;
+        }
+        jobIndex += 1;
+        allMatches.push({
+          id: job.id, kind: 'job', round: 0, day: 0, rd: jobIndex,
+          a: authData.user.user_metadata?.username || authData.user.email || 'Bạn',
+          b: job.kind === 'test' ? 'Bot luyện tập' : 'Bot mẫu',
+          s: Number(job.result?.match_score ?? job.result?.qualification_score ?? 0), games,
+        });
+      }
+    } else if (error && !rows.length) {
+      throw new Error(`${error.message}; ${jobsError.message}`);
+    }
+  } else if (error) {
+    throw new Error(error.message);
+  }
+  const dates = [...new Map(allMatches.map(row => [`${row.round},${row.day}`, { round: row.round!, day: row.day! }])).values()]
     .sort((a, b) => b.round - a.round || b.day - a.day);
   const selected = round !== undefined && day !== undefined
     ? { round, day }
     : dates.find(date => date.round === 0 && date.day === 0) || dates[0] || null;
-  const allMatches = rows.map(row => ({ id: row.replay_id, kind: row.replay_kind, storagePath: row.storage_path, round: row.rnd, day: row.day, rd: row.rd, a: row.player_a, b: row.player_b, s: row.score_a, games: [] }));
   const matches = selected ? allMatches.filter(row => row.round === selected.round && row.day === selected.day) : [];
   return { available: dates, round: selected?.round ?? null, day: selected?.day ?? null, matches, allMatches };
 }

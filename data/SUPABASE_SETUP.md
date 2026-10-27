@@ -1,6 +1,6 @@
 # Cấu hình Supabase
 
-> **Lưu ý triển khai:** phải áp dụng toàn bộ migration có trong workspace theo thứ tự, bao gồm `0017_separate_finals_and_export_qualifiers.sql` và `0018_round_game_rules.sql`. Trạng thái migrations đã chạy trên project Supabase cần được BTC xác nhận trong Dashboard.
+> **Lưu ý triển khai:** phải áp dụng toàn bộ migration có trong workspace theo thứ tự bên dưới, bao gồm các migration cho chung kết offline và Cloudflare Worker. Một số file có cùng tiền tố phiên bản; chạy từng file theo đúng thứ tự liệt kê trong SQL Editor. Trạng thái migrations đã chạy trên project Supabase cần được BTC xác nhận trong Dashboard.
 
 ## 1. Tạo project
 1. Vào https://supabase.com → **New project** (chọn region gần VN: Singapore).
@@ -8,7 +8,7 @@
 
 ## 2. Chạy schema
 **Dashboard → SQL Editor → New query**, chạy tuần tự từng migration:
-`0001_schema.sql` → `0002_scoring_jobs.sql` → `0003_immediate_scoring_and_admin_phases.sql` → `0004_replay_storage_and_web_api.sql` → `0005_admin_monitoring_and_round_submissions.sql` → `0006_online_tournament_operations.sql` → `0007_submission_history_and_replay_visibility.sql` → `0008_admin_tournament_controls.sql` → `0009_fix_prepare_swiss_round_grp_ambiguity.sql` → `0010_handle_single_contestant_bye.sql` → `0011_safe_tournament_reset_and_resume.sql` → `0012_fix_scoring_and_submission_controls.sql` → `0013_entry_attempts_and_daily_tiebreak.sql` → `0014_fix_admin_eliminated_email_type.sql` → `0015_durable_scoring_queue.sql` → `0016_queue_claim_only_ready_jobs.sql` → `0017_separate_finals_and_export_qualifiers.sql` → `0018_round_game_rules.sql`.
+`0001_schema.sql` → `0002_scoring_jobs.sql` → `0003_immediate_scoring_and_admin_phases.sql` → `0004_replay_storage_and_web_api.sql` → `0005_admin_monitoring_and_round_submissions.sql` → `0006_online_tournament_operations.sql` → `0007_submission_history_and_replay_visibility.sql` → `0008_admin_tournament_controls.sql` → `0009_fix_prepare_swiss_round_grp_ambiguity.sql` → `0010_handle_single_contestant_bye.sql` → `0011_safe_tournament_reset_and_resume.sql` → `0012_fix_scoring_and_submission_controls.sql` → `0013_entry_attempts_and_daily_tiebreak.sql` → `0014_fix_admin_eliminated_email_type.sql` → `0015_durable_scoring_queue.sql` → `0016_queue_claim_only_ready_jobs.sql` → `0017_separate_finals_and_export_qualifiers.sql` → `0017_cloudflare_proxy_matches.sql` → `0018_round_game_rules.sql` → `0018_proxy_match_context.sql` → `0018_proxy_match_opponent_id.sql` → `0019_proxy_admin_controls.sql` → `0020_proxy_result_status.sql` → `0021_proxy_result_idempotency.sql` → `0022_admin_clear_contestant_submissions.sql` → `0023_balance_groups_for_small_fields.sql` → `0024_fix_admin_tournament_reset.sql` → `0025_tournament_submission_windows.sql` → `0026_cloudflare_proxy_match_flow.sql` → `0027_fix_prepare_swiss_round_conflict.sql` → `0028_match_submission_window_90_seconds.sql` → `0029_proxy_scoring_timeout_exception.sql` → `0030_advance_swiss_round_after_match.sql` → `0031_two_bo2_attempts_per_match.sql`.
 Không chạy `0004` trước các migration tạo `matches` và `scoring_jobs`.
 
 ## 3. Cấu hình Auth
@@ -55,7 +55,7 @@ const { data: s } = await sb.rpc('get_group_leaderboard', { p_rnd: 1 });        
 const { data: m } = await sb.rpc('get_group_matches', { p_rnd: 1, p_day: 3 });  // trận trong ngày
 const { data: me } = await sb.from('round_members').select('*');                // chỉ thấy dòng của mình
 ```
-Frontend hiện gọi RPC/Storage với anon key + JWT; submit được gửi trực tiếp tới Supabase và scoring module. Các thao tác cần service-role chỉ chạy từ `admin_cli_service` trên máy quản trị.
+Frontend gọi Supabase RPC/Storage bằng anon/publishable key + JWT, còn mọi lượt chấm đi qua Cloudflare Worker. Worker giữ OnlineCompiler key và Supabase service-role key; browser không gọi scoring module cũ.
 
 ## 8. Checklist an toàn
 - [ ] `data/.env` không commit (đã nằm trong `.gitignore`).
@@ -65,11 +65,11 @@ Frontend hiện gọi RPC/Storage với anon key + JWT; submit được gửi tr
 
 ## 9. Biến môi trường khi deploy demo
 
-- **Vercel** (Root Directory `frontend`, Build `npm run build`, Output `dist`): đặt `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SCORING_MODULE_URL` tùy chọn. Không còn `VITE_API_URL`.
+- **Vercel** (Root Directory `frontend`, Build `npm run build`, Output `dist`): đặt `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (hoặc publishable key) và `VITE_SCORING_PROXY_URL=https://<worker-domain>`.
 - **Máy quản trị**: đặt `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` trong môi trường local rồi chạy `admin_cli_service` khi cần tạo/import admin. Không đưa service-role key vào frontend.
-- **Máy chấm tại chỗ**: đặt `OTT_SCORING_CORS_ORIGINS=https://<domain-vercel>`, chạy module trên `8110`, giữ Judge0 riêng ở `2358`, và cấu hình Tunnel hostname HTTPS trỏ tới `8110`. Không đặt secret máy chấm vào Vercel.
+- **Cloudflare Worker**: đặt `SUPABASE_URL` và secrets `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ONLINECOMPILER_API_KEY`. Frontend chỉ gọi Worker qua HTTPS; không cần tunnel tới scoring module.
 - **Máy chủ chung kết riêng**: không cần cấu hình Supabase. Web chính dùng Supabase để xuất roster CSV sau Vòng 4; máy chung kết import CSV cục bộ và cấp mật khẩu tạm riêng.
 - Trong Supabase Auth → URL Configuration, thêm domain Vercel vào Site URL/Redirect URLs.
-- URL máy chấm do người dùng nhập và lưu vào trình duyệt, hoặc URL admin lưu ở Supabase, phải truy cập được từ trình duyệt thí sinh. `localhost` trên máy ban tổ chức không dùng được với người xem từ xa.
+- Áp dụng các migration replay `0004` và `0007` cùng migration proxy `0017` đến `0031`. Replay match được công bố sau khi ngày thi đã chấm và đến `publish_after`.
 
-Các vòng 1–4 online vận hành qua Supabase RPC và scoring module. Migration `0018` gán sẵn luật 1–4 theo thứ tự vòng và lưu snapshot cho các trận/replay. Chung kết offline dùng luật 5 trong engine cục bộ: chỉ xuất roster trên web chính cần Supabase; tại điểm thi, đăng nhập, chạy trận và đọc kết quả đều hoạt động qua Flask + SQLite trên LAN, không phụ thuộc Internet, Supabase, Judge0 hoặc scoring module. Mật khẩu chung kết là mật khẩu tạm mới, không phải mật khẩu Supabase.
+Các vòng 1–4 online vận hành qua Supabase RPC và Cloudflare Worker. Migration `0018_round_game_rules.sql` gán sẵn luật 1–4 theo thứ tự vòng và lưu snapshot cho các trận/replay. Chung kết offline dùng luật 5 trong engine cục bộ: chỉ xuất roster trên web chính cần Supabase; tại điểm thi, đăng nhập, chạy trận và đọc kết quả đều hoạt động qua Flask + SQLite trên LAN, không phụ thuộc Internet, Supabase, Judge0 hoặc scoring module. Mật khẩu chung kết là mật khẩu tạm mới, không phải mật khẩu Supabase.
