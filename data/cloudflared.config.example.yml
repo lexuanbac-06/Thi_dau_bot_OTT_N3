@@ -1,0 +1,14 @@
+tunnel: ott-storage
+credentials-file: /Users/huyle/.cloudflared/<TUNNEL_UUID>.json   # Windows: C:\Users\<user>\.cloudflared\<TUNNEL_UUID>.json
+
+ingress:
+  # Replay (file nặng) – storage server
+  - hostname: files.example.com
+    service: http://127.0.0.1:8100
+  # Scoring API (Judge0 itself stays local on host port 2358)
+  - hostname: score.example.com
+    service: http://127.0.0.1:8110
+  # (Tùy chọn) web/API thi đấu chạy trên cùng máy
+  - hostname: ott.example.com
+    service: http://127.0.0.1:8000
+  - service: http_status:404

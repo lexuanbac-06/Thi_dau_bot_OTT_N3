@@ -73,9 +73,20 @@ def play(bots, max_plies=MAX_PLIES, moves=None):
         lm = legal_moves(b, p)
         lose = -1 if p == 0 else 1
         if not lm:
+            bot_name = getattr(bots[p], "name", f"Bên {p}")
+            print(f"[ENGINE INFO] Lượt {ply}: {bot_name} không còn nước đi hợp lệ -> xử thua.", file=sys.stderr, flush=True)
             return lose
-        m = bots[p].move(encode(b, p, ply), FIRST_T if ply < 2 else MOVE_T)
+        t_limit = FIRST_T if ply < 2 else MOVE_T
+        m = bots[p].move(encode(b, p, ply), t_limit)
+        bot_name = getattr(bots[p], "name", f"Bên {p}")
+        if m is None:
+            err = getattr(bots[p], "last_error", "Bot không trả về nước đi")
+            print(f"[ENGINE LỖI] Lượt {ply} ({bot_name}): {err} -> Xử thua!", file=sys.stderr, flush=True)
+            return lose
         if m not in lm:
+            err = f"Nước đi phạm quy {m} (không nằm trong danh sách {len(lm)} nước hợp lệ)"
+            bots[p].last_error = err
+            print(f"[ENGINE LỖI] Lượt {ply} ({bot_name}): {err} -> Xử thua!", file=sys.stderr, flush=True)
             return lose
         b = apply(b, m)
         if moves is not None:
@@ -92,6 +103,10 @@ class ProcBot:
     Khi thi thật nên chạy trong docker/VM riêng."""
 
     def __init__(self, path):
+        self.path = path
+        self.name = os.path.basename(path)
+        self.last_error = None
+        self.stderr_lines = []
         self.cwd = tempfile.mkdtemp(prefix="ott_")
         self.q = queue.Queue()
         kw = {}
@@ -102,35 +117,74 @@ class ProcBot:
             env = {}
 
             def limits():
-                resource.setrlimit(resource.RLIMIT_AS, (512 << 20, 512 << 20))
-                resource.setrlimit(resource.RLIMIT_CPU, (30, 30))
-                resource.setrlimit(resource.RLIMIT_FSIZE, (0, 0))
-                resource.setrlimit(resource.RLIMIT_NPROC, (0, 0))
+                for lim, val in [
+                    (getattr(resource, "RLIMIT_AS", None), (512 << 20, 512 << 20)),
+                    (getattr(resource, "RLIMIT_CPU", None), (30, 30)),
+                    (getattr(resource, "RLIMIT_FSIZE", None), (0, 0)),
+                    (getattr(resource, "RLIMIT_NPROC", None), (0, 0)),
+                ]:
+                    if lim is not None:
+                        try:
+                            resource.setrlimit(lim, val)
+                        except Exception:
+                            pass
             kw["preexec_fn"] = limits
             kw["start_new_session"] = True
         self.p = subprocess.Popen([sys.executable, "-I", os.path.abspath(path)], stdin=subprocess.PIPE,
-                                  stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=0,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0,
                                   cwd=self.cwd, env=env, **kw)
         threading.Thread(target=self._reader, daemon=True).start()
+        threading.Thread(target=self._err_reader, daemon=True).start()
 
-    def _reader(self):                      # thread đọc từng dòng stdout -> queue (chạy được cả Windows)
+    def _reader(self):                      # thread đọc từng dòng stdout -> queue
         try:
             for line in iter(self.p.stdout.readline, b""):
                 self.q.put(line[:200])
+        except Exception as e:
+            self.last_error = f"Lỗi đọc stdout: {e}"
+        self.q.put(None)
+
+    def _err_reader(self):                  # thread đọc stderr -> in ra terminal
+        try:
+            for line in iter(self.p.stderr.readline, b""):
+                text = line.decode("utf-8", errors="replace").rstrip()
+                if text:
+                    self.stderr_lines.append(text)
+                    print(f"[{self.name} STDERR] {text}", file=sys.stderr, flush=True)
         except Exception:
             pass
-        self.q.put(None)
 
     def move(self, state, timeout):
         try:
             self.p.stdin.write((json.dumps(state) + "\n").encode())
             self.p.stdin.flush()
+        except Exception as e:
+            self.last_error = f"Lỗi ghi stdin: {e}"
+            print(f"[{self.name}] {self.last_error}", file=sys.stderr, flush=True)
+            return None
+
+        try:
             line = self.q.get(timeout=timeout)
-            if line is None:
-                return None
-            x, y, nx, ny = map(int, line.split())
+        except queue.Empty:
+            self.last_error = f"TIMEOUT: Bot chạy quá {timeout}s không phản hồi nước đi!"
+            print(f"[{self.name}] {self.last_error}", file=sys.stderr, flush=True)
+            return None
+
+        if line is None:
+            detail = " | ".join(self.stderr_lines[-3:]) if self.stderr_lines else "tiến trình đã thoát"
+            self.last_error = f"Bot bị crash hoặc thoát sớm: {detail}"
+            print(f"[{self.name}] {self.last_error}", file=sys.stderr, flush=True)
+            return None
+
+        try:
+            parts = line.strip().split()
+            if len(parts) != 4:
+                raise ValueError(f"Đầu ra phải là 4 số 'x y nx ny', bot in ra: {line!r}")
+            x, y, nx, ny = map(int, parts)
             return (x, y, nx, ny)
-        except Exception:
+        except Exception as e:
+            self.last_error = f"Lỗi định dạng nước đi: {e}"
+            print(f"[{self.name}] {self.last_error}", file=sys.stderr, flush=True)
             return None
 
     def close(self):

@@ -1,0 +1,328 @@
+"""OTTv2 engine: luật chơi, sandbox chạy bot thí sinh, bot BTC dùng cho thi đầu vào.
+
+Quy ước:
+- Bàn 9x9, toạ độ (x,y), x=0..8 là cột a..i, y=0..8 là hàng 1..9.
+- Loại quân: 0=Búa, 1=Bao, 2=Kéo.  Búa>Kéo, Kéo>Bao, Bao>Búa.
+- Người 0 (đi trước) xuất phát hàng 1, đích là ô i9 = (8,8).
+- Người 1 xuất phát hàng 9, đích là ô a1 = (0,0).
+- Quân đi 1 ô theo 8 hướng. Đi vào ô quân mình / quân địch cùng loại / quân địch khắc mình => không hợp lệ.
+- Thắng: ăn hết 1 loại quân của đối phương, hoặc đưa 1 quân vào ô đích.
+- Hết nước đi, đi sai, timeout, crash => thua. Quá MAX_PLIES nước => hòa.
+"""
+import os, sys, json, random, subprocess, tempfile, time, shutil, threading, queue
+
+IS_WIN = sys.platform.startswith("win")
+if not IS_WIN:
+    import resource
+
+N = 9
+BEAT = {0: 2, 1: 0, 2: 1}          # BEAT[t] = loại bị t ăn được
+DIRS = [(dx, dy) for dx in (-1, 0, 1) for dy in (-1, 0, 1) if dx or dy]
+GOAL = {0: (8, 8), 1: (0, 0)}
+MAX_PLIES = 200
+FIRST_T, MOVE_T = 3.0, 1.0         # giây: nước đầu (tính cả khởi động python) / các nước sau
+
+
+# ---------------- LUẬT ----------------
+def initial():
+    b = {}
+    for x in range(N):
+        b[(x, 0)] = (0, x % 3)
+        b[(x, N - 1)] = (1, x % 3)
+    return b
+
+
+def legal_moves(b, p):
+    out = []
+    for (x, y), (o, t) in b.items():
+        if o != p:
+            continue
+        for dx, dy in DIRS:
+            nx, ny = x + dx, y + dy
+            if 0 <= nx < N and 0 <= ny < N:
+                c = b.get((nx, ny))
+                if c is None or (c[0] != p and BEAT[t] == c[1]):
+                    out.append((x, y, nx, ny))
+    return out
+
+
+def apply(b, m):
+    x, y, nx, ny = m
+    b = dict(b)
+    b[(nx, ny)] = b.pop((x, y))
+    return b
+
+
+def check_win(b, p, m):
+    """p vừa đi nước m: p thắng chưa?"""
+    if (m[2], m[3]) == GOAL[p]:
+        return True
+    return len({t for (o, t) in b.values() if o == 1 - p}) < 3
+
+
+def encode(b, me, ply):
+    return {"me": me, "ply": ply, "goal": list(GOAL[me]),
+            "pieces": [[x, y, o, t] for (x, y), (o, t) in b.items()]}
+
+
+def play(bots, max_plies=MAX_PLIES, moves=None):
+    """bots[0] đi trước. Trả +1 nếu bots[0] thắng, -1 nếu thua, 0 hòa."""
+    b = initial()
+    for ply in range(max_plies):
+        p = ply % 2
+        lm = legal_moves(b, p)
+        lose = -1 if p == 0 else 1
+        if not lm:
+            bot_name = getattr(bots[p], "name", f"Bên {p}")
+            print(f"[ENGINE INFO] Lượt {ply}: {bot_name} không còn nước đi hợp lệ -> xử thua.", file=sys.stderr, flush=True)
+            return lose
+        t_limit = FIRST_T if ply < 2 else MOVE_T
+        m = bots[p].move(encode(b, p, ply), t_limit)
+        bot_name = getattr(bots[p], "name", f"Bên {p}")
+        if m is None:
+            err = getattr(bots[p], "last_error", "Bot không trả về nước đi")
+            print(f"[ENGINE LỖI] Lượt {ply} ({bot_name}): {err} -> Xử thua!", file=sys.stderr, flush=True)
+            return lose
+        if m not in lm:
+            err = f"Nước đi phạm quy {m} (không nằm trong danh sách {len(lm)} nước hợp lệ)"
+            bots[p].last_error = err
+            print(f"[ENGINE LỖI] Lượt {ply} ({bot_name}): {err} -> Xử thua!", file=sys.stderr, flush=True)
+            return lose
+        b = apply(b, m)
+        if moves is not None:
+            moves.append((p, m))
+        if check_win(b, p, m):
+            return -lose
+    return 0
+
+
+# ---------------- SANDBOX ----------------
+class ProcBot:
+    """Chạy file .py của thí sinh trong process riêng, giao tiếp qua stdin/stdout (mỗi dòng 1 JSON -> 'x y nx ny').
+    Linux: giới hạn RAM/CPU/file/process bằng rlimit. Windows: chỉ có timeout từng nước (không giới hạn RAM).
+    Khi thi thật nên chạy trong docker/VM riêng."""
+
+    def __init__(self, path):
+        self.path = path
+        self.name = os.path.basename(path)
+        self.last_error = None
+        self.stderr_lines = []
+        self.cwd = tempfile.mkdtemp(prefix="ott_")
+        self.q = queue.Queue()
+        kw = {}
+        if IS_WIN:
+            env = {k: v for k, v in os.environ.items() if k.upper() in ("SYSTEMROOT", "PATH", "TEMP", "TMP")}
+            kw["creationflags"] = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+        else:
+            env = {}
+
+            def limits():
+                for lim, val in [
+                    (getattr(resource, "RLIMIT_AS", None), (512 << 20, 512 << 20)),
+                    (getattr(resource, "RLIMIT_CPU", None), (30, 30)),
+                    (getattr(resource, "RLIMIT_FSIZE", None), (0, 0)),
+                    (getattr(resource, "RLIMIT_NPROC", None), (0, 0)),
+                ]:
+                    if lim is not None:
+                        try:
+                            resource.setrlimit(lim, val)
+                        except Exception:
+                            pass
+            kw["preexec_fn"] = limits
+            kw["start_new_session"] = True
+        self.p = subprocess.Popen([sys.executable, "-I", os.path.abspath(path)], stdin=subprocess.PIPE,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0,
+                                  cwd=self.cwd, env=env, **kw)
+        threading.Thread(target=self._reader, daemon=True).start()
+        threading.Thread(target=self._err_reader, daemon=True).start()
+
+    def _reader(self):                      # thread đọc từng dòng stdout -> queue
+        try:
+            for line in iter(self.p.stdout.readline, b""):
+                self.q.put(line[:200])
+        except Exception as e:
+            self.last_error = f"Lỗi đọc stdout: {e}"
+        self.q.put(None)
+
+    def _err_reader(self):                  # thread đọc stderr -> in ra terminal
+        try:
+            for line in iter(self.p.stderr.readline, b""):
+                text = line.decode("utf-8", errors="replace").rstrip()
+                if text:
+                    self.stderr_lines.append(text)
+                    print(f"[{self.name} STDERR] {text}", file=sys.stderr, flush=True)
+        except Exception:
+            pass
+
+    def move(self, state, timeout):
+        try:
+            self.p.stdin.write((json.dumps(state) + "\n").encode())
+            self.p.stdin.flush()
+        except Exception as e:
+            self.last_error = f"Lỗi ghi stdin: {e}"
+            print(f"[{self.name}] {self.last_error}", file=sys.stderr, flush=True)
+            return None
+
+        try:
+            line = self.q.get(timeout=timeout)
+        except queue.Empty:
+            self.last_error = f"TIMEOUT: Bot chạy quá {timeout}s không phản hồi nước đi!"
+            print(f"[{self.name}] {self.last_error}", file=sys.stderr, flush=True)
+            return None
+
+        if line is None:
+            detail = " | ".join(self.stderr_lines[-3:]) if self.stderr_lines else "tiến trình đã thoát"
+            self.last_error = f"Bot bị crash hoặc thoát sớm: {detail}"
+            print(f"[{self.name}] {self.last_error}", file=sys.stderr, flush=True)
+            return None
+
+        try:
+            parts = line.strip().split()
+            if len(parts) != 4:
+                raise ValueError(f"Đầu ra phải là 4 số 'x y nx ny', bot in ra: {line!r}")
+            x, y, nx, ny = map(int, parts)
+            return (x, y, nx, ny)
+        except Exception as e:
+            self.last_error = f"Lỗi định dạng nước đi: {e}"
+            print(f"[{self.name}] {self.last_error}", file=sys.stderr, flush=True)
+            return None
+
+    def close(self):
+        try:
+            self.p.kill(); self.p.wait(timeout=2)
+        except Exception:
+            pass
+        shutil.rmtree(self.cwd, ignore_errors=True)
+
+
+class FuncBot:
+    def __init__(self, fn): self.fn = fn
+    def move(self, state, timeout): return self.fn(state)
+    def close(self): pass
+
+
+# ---------------- BOT BTC (đơn giản) ----------------
+def _decode(s):
+    return {(x, y): (o, t) for x, y, o, t in s["pieces"]}, s["me"]
+
+
+def _dist(x, y, g):
+    return max(abs(x - g[0]), abs(y - g[1]))
+
+
+def btc0(s):  # ngẫu nhiên
+    b, me = _decode(s)
+    return random.choice(legal_moves(b, me))
+
+
+def btc1(s):  # tham lam: thắng ngay > ăn quân > tiến về đích
+    b, me = _decode(s)
+    lm, g = legal_moves(b, me), GOAL[me]
+    for m in lm:
+        if (m[2], m[3]) == g:
+            return m
+    caps = [m for m in lm if (m[2], m[3]) in b]
+    if caps:
+        return random.choice(caps)
+    return min(lm, key=lambda m: (_dist(m[2], m[3], g), random.random()))
+
+
+def btc2(s):  # chấm điểm 1 nước: thắng ngay, ăn quân, tiến gần đích, tránh bị khắc ăn
+    b, me = _decode(s)
+    g, best, bs = GOAL[me], None, -1e9
+    for m in legal_moves(b, me):
+        nb = apply(b, m)
+        if check_win(nb, me, m):
+            return m
+        t = nb[(m[2], m[3])][1]
+        sc = random.random() * 0.3 + 0.5 * (_dist(m[0], m[1], g) - _dist(m[2], m[3], g))
+        if (m[2], m[3]) in b:
+            sc += 3
+        for dx, dy in DIRS:
+            c = nb.get((m[2] + dx, m[3] + dy))
+            if c and c[0] != me and BEAT[c[1]] == t:
+                sc -= 4
+                break
+        if sc > bs:
+            best, bs = m, sc
+    return best
+
+
+BTC = [btc0, btc1, btc2]
+
+
+def _entry_btc(s, prioritize_progress=False, take_wins=False):
+    b, me = _decode(s)
+    moves = legal_moves(b, me)
+    if take_wins:
+        for move in moves:
+            if check_win(apply(b, move), me, move):
+                return move
+    if prioritize_progress:
+        x, y = GOAL[me]
+        advancing = [
+            move for move in moves
+            if _dist(move[2], move[3], (x, y)) < _dist(move[0], move[1], (x, y))
+        ]
+        if advancing:
+            return random.choice(advancing)
+    return random.choice(moves)
+
+
+def entry_btc0(s):
+    return _entry_btc(s)
+
+
+def entry_btc1(s):
+    return _entry_btc(s, prioritize_progress=True)
+
+
+def entry_btc2(s):
+    return _entry_btc(s, take_wins=True)
+
+
+ENTRY_BTC = [entry_btc0, entry_btc1, entry_btc2]
+
+
+# ---------------- TRẬN BO2 ----------------
+def make_bot(spec):
+    if spec.startswith("entry:"):
+        return FuncBot(ENTRY_BTC[int(spec[6:])])
+    return FuncBot(BTC[int(spec[4:])]) if spec.startswith("btc:") else ProcBot(spec)
+
+
+def _play_match(args, record):
+    """args=(specA, specB), spec là đường dẫn file bot hoặc 'btc:k'. BO2, mỗi bên đi trước 1 ván.
+    Trả tổng điểm của A; tùy chọn kèm dữ liệu nước đi từng ván."""
+    a, b = args
+    s = 0
+    games = []
+    for first in (0, 1):
+        ba, bb = make_bot(a), make_bot(b)
+        moves = [] if record else None
+        try:
+            raw = play([ba, bb] if first == 0 else [bb, ba], moves=moves)
+            r = raw if first == 0 else -raw
+        finally:
+            ba.close(); bb.close()
+        s += r
+        if record:
+            games.append({
+                "players": ["a", "b"] if first == 0 else ["b", "a"],
+                "result": r,
+                "moves": moves,
+            })
+    return (s, games) if record else s
+
+
+def play_match_recorded(args):
+    return _play_match(args, True)
+
+
+def play_match(args):
+    return _play_match(args, False)
+
+
+if __name__ == "__main__" and len(sys.argv) == 3 and sys.argv[1] == "test":
+    for i in range(3):   # thí sinh tự test bot ở máy mình
+        print(f"vs btc:{i}: {play_match((sys.argv[2], f'btc:{i}'))} / 2")
