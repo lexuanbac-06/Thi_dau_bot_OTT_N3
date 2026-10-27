@@ -24,6 +24,7 @@ import {
   Shield,
   Swords,
   Trophy,
+  UploadCloud,
   UserRound,
   Users,
   X,
@@ -56,11 +57,17 @@ type Contestant = {
   display_name: string;
   student_id: string | null;
   created_at: string;
+  bot_status?: 'pending' | 'approved' | 'rejected' | 'none' | null;
+  bot_file_name?: string | null;
+  bot_updated_at?: string | null;
 };
 type User = {
   username: string;
   display_name: string;
   student_id: string | null;
+  bot_status?: 'pending' | 'approved' | 'rejected' | 'none' | null;
+  bot_file_name?: string | null;
+  bot_updated_at?: string | null;
 };
 type GameMove = [number, [number, number, number, number]];
 type Game = {
@@ -159,6 +166,8 @@ export default function FinalsApp() {
   const [finalistCsvFile, setFinalistCsvFile] = useState<File | null>(null);
   const [feed, setFeed] = useState<string[]>([]);
   const [showAdminSecret, setShowAdminSecret] = useState(false);
+  const [botUploadFile, setBotUploadFile] = useState<File | null>(null);
+  const [botUploading, setBotUploading] = useState(false);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [matchForm, setMatchForm] = useState({
     playerA: '',
@@ -206,6 +215,21 @@ export default function FinalsApp() {
     }
   }, [adminSecret, notify]);
 
+  const loadCurrentUser = useCallback(async () => {
+    const token = localStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      setUser(null);
+      return;
+    }
+    try {
+      const profile = await api<{ user: User }>('/finals/me');
+      setUser(profile.user);
+    } catch {
+      localStorage.removeItem(TOKEN_KEY);
+      setUser(null);
+    }
+  }, []);
+
   useEffect(() => {
     void loadPublicData();
     const interval = window.setInterval(() => void loadPublicData(), 15000);
@@ -213,15 +237,8 @@ export default function FinalsApp() {
   }, [loadPublicData]);
 
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) return;
-    void api<{ user: User }>('/finals/me')
-      .then((data) => setUser(data.user))
-      .catch(() => {
-        localStorage.removeItem(TOKEN_KEY);
-        setUser(null);
-      });
-  }, []);
+    void loadCurrentUser();
+  }, [loadCurrentUser]);
 
   useEffect(() => {
     if (tab !== 'admin' && tab !== 'contestants') return;
@@ -378,14 +395,37 @@ export default function FinalsApp() {
         body: JSON.stringify(loginForm),
       });
       localStorage.setItem(TOKEN_KEY, data.token);
-      const profile = await api<{ user: User }>('/finals/me');
-      setUser(profile.user);
+      await loadCurrentUser();
       setLoginForm({ username: '', password: '' });
       notify('Đăng nhập thành công.');
     } catch (error) {
       notify(error instanceof Error ? error.message : 'Không thể đăng nhập.', true);
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function uploadBot(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!botUploadFile) {
+      notify('Hãy chọn file bot .py trước khi nộp.', true);
+      return;
+    }
+    setBotUploading(true);
+    try {
+      const form = new FormData();
+      form.append('file', botUploadFile);
+      await api('/finals/contestants/bot/upload', {
+        method: 'POST',
+        body: form,
+      });
+      setBotUploadFile(null);
+      await loadCurrentUser();
+      notify('Đã nhận file bot của bạn. BTC sẽ chốt trước khi thi đấu.');
+    } catch (error) {
+      notify(error instanceof Error ? error.message : 'Không thể nộp bot.', true);
+    } finally {
+      setBotUploading(false);
     }
   }
 
@@ -516,6 +556,12 @@ export default function FinalsApp() {
   const latestMatches = matches.slice(0, 5);
   const completedCount = matches.filter((match) => match.status === 'done').length;
   const activeCount = matches.filter((match) => match.status === 'running' || match.status === 'pending').length;
+  const botStatusLabel: Record<NonNullable<User['bot_status']> | 'none', string> = {
+    none: 'Chưa nộp',
+    pending: 'Chờ BTC chốt',
+    approved: 'Đã chốt',
+    rejected: 'Bị từ chối',
+  };
   const pageTitle: Record<Tab, string> = {
     overview: 'Tổng quan',
     matches: 'Trận đấu',
@@ -725,6 +771,19 @@ export default function FinalsApp() {
               </div>
             )}
             {user && <div className="finals-profile-card"><span className="finals-avatar finals-profile-avatar">{initials(user.display_name)}</span><div><small>ĐANG ĐĂNG NHẬP</small><strong>{user.display_name}</strong><span>{user.username} · MSSV {user.student_id || 'chưa cập nhật'}</span></div><button className="finals-row-action" onClick={() => void logout()} aria-label="Đăng xuất"><LogOut size={16} /></button></div>}
+            {user && (
+              <section className="finals-panel finals-form-panel">
+                <div className="finals-panel-header"><div><UploadCloud size={17} /><strong>Nộp bot trực tiếp lên web</strong></div><span className="finals-form-index">03</span></div>
+                <p className="finals-form-intro">Nộp file mã Python của bạn. BTC sẽ kiểm tra và chốt bản cuối trước khi thi. Nếu chưa đạt chuẩn, file sẽ ở trạng thái chờ duyệt.</p>
+                <form className="finals-form" onSubmit={(event) => void uploadBot(event)}>
+                  <label>File bot (.py)<input type="file" accept=".py" onChange={(event) => setBotUploadFile(event.target.files?.[0] ?? null)} /></label>
+                  <div className="finals-form-grid finals-form-grid-even">
+                    <span className="finals-muted">Trạng thái hiện tại: <strong>{botStatusLabel[user.bot_status ?? 'none']}</strong>{user.bot_file_name ? ` · ${user.bot_file_name}` : ''}</span>
+                    <button className="finals-button finals-button-primary" disabled={botUploading || !botUploadFile}><Plus size={16} /> {botUploading ? 'Đang nộp…' : 'Nộp file bot'}</button>
+                  </div>
+                </form>
+              </section>
+            )}
             <div className="finals-panel finals-table-panel">
               <div className="finals-table-toolbar"><div><h2>Bảng xếp hạng chung kết</h2><span>{standings.length} thí sinh có thành tích</span></div><button className="finals-button finals-button-ghost" onClick={() => void loadPublicData()}><RefreshCw size={15} /> Cập nhật</button></div>
               <div className="finals-table-scroll"><table className="finals-table"><thead><tr><th>HẠNG</th><th>THÍ SINH</th><th>THẮNG</th><th>HÒA</th><th>THUA</th><th>ĐIỂM</th><th>CẬP NHẬT</th></tr></thead><tbody>{standings.map((standing, index) => <tr key={standing.username}><td><span className={`finals-table-rank ${index < 3 ? `top-${index + 1}` : ''}`}>{index === 0 ? <Crown size={15} /> : `#${index + 1}`}</span></td><td><div className="finals-table-user"><span className={`finals-avatar rank-avatar-${Math.min(index + 1, 3)}`}>{initials(standing.username)}</span><strong>{standing.username}</strong></div></td><td className="finals-win">{standing.wins}</td><td>{standing.draws}</td><td className="finals-loss">{standing.losses}</td><td><strong className="finals-table-points">{standing.points}</strong></td><td className="finals-muted">{formatDate(standing.updated_at, true)}</td></tr>)}</tbody></table></div>
@@ -773,7 +832,7 @@ export default function FinalsApp() {
             </div>
             <div className="finals-panel finals-table-panel">
               <div className="finals-table-toolbar"><div><h2>Danh sách thí sinh</h2><span>{contestants.length} tài khoản trong hệ thống</span></div><button className="finals-button finals-button-ghost" onClick={() => void loadAdminData()}><RefreshCw size={15} /> Làm mới</button></div>
-              <div className="finals-table-scroll"><table className="finals-table"><thead><tr><th>THÍ SINH</th><th>HỌ VÀ TÊN</th><th>MÃ SINH VIÊN</th><th>NGÀY TẠO</th><th>BOT</th></tr></thead><tbody>{contestants.map((contestant) => <tr key={contestant.username}><td><div className="finals-table-user"><span className="finals-avatar">{initials(contestant.username)}</span><strong>{contestant.username}</strong></div></td><td>{contestant.display_name}</td><td className="finals-muted">{contestant.student_id || '—'}</td><td className="finals-muted">{formatDate(contestant.created_at)}</td><td><button className="finals-button finals-button-ghost finals-button-small" onClick={() => void snapshotBot(contestant.username)}><Check size={14} /> Chốt bot</button></td></tr>)}</tbody></table></div>
+              <div className="finals-table-scroll"><table className="finals-table"><thead><tr><th>THÍ SINH</th><th>HỌ VÀ TÊN</th><th>MÃ SINH VIÊN</th><th>TRẠNG THÁI BOT</th><th>NGÀY TẠO</th><th>BOT</th></tr></thead><tbody>{contestants.map((contestant) => <tr key={contestant.username}><td><div className="finals-table-user"><span className="finals-avatar">{initials(contestant.username)}</span><strong>{contestant.username}</strong></div></td><td>{contestant.display_name}</td><td className="finals-muted">{contestant.student_id || '—'}</td><td className="finals-muted">{botStatusLabel[contestant.bot_status ?? 'none']}</td><td className="finals-muted">{formatDate(contestant.created_at)}</td><td><button className="finals-button finals-button-ghost finals-button-small" onClick={() => void snapshotBot(contestant.username)}><Check size={14} /> Chốt bot</button></td></tr>)}</tbody></table></div>
               {contestants.length === 0 && <EmptyState title={adminSecret ? 'Chưa có thí sinh nào' : 'Cần quyền ban tổ chức'} text={adminSecret ? 'Thêm tài khoản thí sinh bằng biểu mẫu phía trên.' : 'Nhập Admin Secret để xem danh sách và quản lý thí sinh.'} />}
             </div>
           </section>

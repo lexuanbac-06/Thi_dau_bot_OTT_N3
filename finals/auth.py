@@ -224,7 +224,13 @@ def purge_expired_sessions() -> int:
 # ---------------------------------------------------------------------------
 def list_contestants() -> list[dict]:
     return db.fetchall(
-        "SELECT username, display_name, student_id, created_at FROM contestants ORDER BY username"
+        """SELECT c.username, c.display_name, c.student_id, c.created_at,
+                  COALESCE(bs.status, 'none') AS bot_status,
+                  bs.file_name AS bot_file_name,
+                  bs.updated_at AS bot_updated_at
+           FROM contestants c
+           LEFT JOIN bot_submissions bs ON bs.username = c.username
+           ORDER BY c.username"""
     )
 
 

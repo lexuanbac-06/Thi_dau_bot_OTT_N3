@@ -107,6 +107,14 @@ def require_admin():
     return None
 
 
+def _contestant_submission(username: str) -> dict | None:
+    return db.fetchone(
+        """SELECT username, file_name, file_path, status, submitted_at, approved_by, approved_at, updated_at
+           FROM bot_submissions WHERE username = ? LIMIT 1""",
+        (username,),
+    )
+
+
 from werkzeug.exceptions import HTTPException
 
 
@@ -196,7 +204,67 @@ def me():
     err = require_auth()
     if err:
         return err
-    return jsonify(ok=True, user=g.current_user), 200
+    user = dict(g.current_user)
+    submission = _contestant_submission(user["username"])
+    if submission:
+        user["bot_status"] = submission["status"]
+        user["bot_file_name"] = submission["file_name"]
+        user["bot_updated_at"] = submission["updated_at"]
+    else:
+        user["bot_status"] = "none"
+        user["bot_file_name"] = None
+        user["bot_updated_at"] = None
+    return jsonify(ok=True, user=user), 200
+
+
+@app.post("/finals/contestants/bot/upload")
+def contestant_upload_bot():
+    err = require_auth()
+    if err:
+        return err
+
+    upload = request.files.get("file")
+    if upload is None or not upload.filename:
+        return jsonify(ok=False, error="Hãy chọn file Python .py để nộp."), 400
+    filename = os.path.basename(upload.filename)
+    if not filename.lower().endswith(".py"):
+        return jsonify(ok=False, error="Chỉ chấp nhận file Python (.py)."), 400
+
+    username = g.current_user["username"]
+    target_dir = os.path.join(BOT_DIR, username)
+    os.makedirs(target_dir, exist_ok=True)
+    pending_path = os.path.join(target_dir, "pending.py")
+    upload.save(pending_path)
+
+    db.execute(
+        """INSERT INTO bot_submissions(username, file_name, file_path, status, submitted_at, updated_at)
+           VALUES (?, ?, ?, 'pending', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+           ON CONFLICT(username) DO UPDATE SET
+               file_name = excluded.file_name,
+               file_path = excluded.file_path,
+               status = 'pending',
+               submitted_at = CURRENT_TIMESTAMP,
+               approved_by = NULL,
+               approved_at = NULL,
+               updated_at = CURRENT_TIMESTAMP""",
+        (username, filename, pending_path),
+    )
+    logger.info("[APP] Thí sinh %s nộp bot qua web: %s", username, pending_path)
+    return jsonify(ok=True, submission={
+        "username": username,
+        "file_name": filename,
+        "status": "pending",
+        "file_path": pending_path,
+    }), 200
+
+
+@app.get("/finals/contestants/bot/status")
+def contestant_bot_status():
+    err = require_auth()
+    if err:
+        return err
+    submission = _contestant_submission(g.current_user["username"])
+    return jsonify(ok=True, submission=submission), 200
 
 
 # ---------------------------------------------------------------------------
@@ -411,12 +479,26 @@ def admin_snapshot_bot():
 
     src = os.path.join(BOT_DIR, username, "latest.py")
     if not os.path.exists(src):
-        return jsonify(ok=False, error=f"Không tìm thấy bot của {username}"), 404
+        pending = _contestant_submission(username)
+        if pending and pending.get("file_path") and os.path.exists(pending["file_path"]):
+            src = pending["file_path"]
+            target_latest = os.path.join(BOT_DIR, username, "latest.py")
+            os.makedirs(os.path.dirname(target_latest), exist_ok=True)
+            import shutil
+            shutil.copy2(src, target_latest)
+        else:
+            return jsonify(ok=False, error=f"Không tìm thấy bot của {username}"), 404
 
     os.makedirs(FINALS_SNAP_DIR, exist_ok=True)
     import shutil
     dst = os.path.join(FINALS_SNAP_DIR, f"{username}.py")
     shutil.copy2(src, dst)
+    db.execute(
+        """UPDATE bot_submissions
+           SET status='approved', approved_by='admin', approved_at=CURRENT_TIMESTAMP, updated_at=CURRENT_TIMESTAMP
+           WHERE username=?""",
+        (username,),
+    )
     logger.info("[APP] Đã snapshot bot: %s → %s", username, dst)
     return jsonify(ok=True, saved=dst), 200
 

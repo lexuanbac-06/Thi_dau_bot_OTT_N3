@@ -107,9 +107,23 @@ CREATE TABLE IF NOT EXISTS standings (
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS bot_submissions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    username     TEXT UNIQUE NOT NULL REFERENCES contestants(username) ON DELETE CASCADE,
+    file_name    TEXT NOT NULL,
+    file_path    TEXT NOT NULL,
+    status       TEXT NOT NULL DEFAULT 'pending',
+    submitted_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    approved_by  TEXT,
+    approved_at  TEXT,
+    notes        TEXT,
+    updated_at   TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_matches_status ON matches(status);
 CREATE INDEX IF NOT EXISTS idx_sessions_username ON sessions(username);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_bot_submissions_status ON bot_submissions(status);
 """
 
 

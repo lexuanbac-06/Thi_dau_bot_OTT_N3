@@ -63,3 +63,19 @@ TypeError: 'sqlite3.Cursor' object does not support the context manager protocol
 2026-10-27 11:24:36 INFO    finals.runner            [MATCH:bd08550b-ba04-4154-bbcb-1180de83654e] Kết thúc: test_ck_01 1-0 test_ck_02 (87.1s)
 2026-10-27 11:24:36 DEBUG   finals.runner            [STANDINGS] Cập nhật: test_ck_01, test_ck_02 (score=1)
 2026-10-27 11:24:36 DEBUG   finals.live              [LIVE:bd08550b-ba04-4154-bbcb-1180de83654e] Khách đã ngắt kết nối
+2026-10-27 17:09:31 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\logs\finals.log
+2026-10-27 17:11:37 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\logs\finals.log
+2026-10-27 17:12:07 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\logs\finals.log
+2026-10-27 17:12:07 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-27 17:12:07 INFO    finals.db                [DB] SQLite sẵn sàng: C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\finals.db
+2026-10-27 17:12:07 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-27 17:12:07 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-27 17:12:07 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-27 17:12:07 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-27 17:26:41 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\logs\finals.log
+2026-10-27 17:26:41 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-27 17:26:41 INFO    finals.db                [DB] SQLite sẵn sàng: C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\finals.db
+2026-10-27 17:26:41 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-27 17:26:41 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-27 17:26:41 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-27 17:26:41 INFO    finals.app               [APP] Sẵn sàng.
