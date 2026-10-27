@@ -211,9 +211,8 @@ def get_session(token: str) -> dict | None:
 def purge_expired_sessions() -> int:
     """Xoá session đã hết hạn (dùng cho maintenance job định kỳ)."""
     with db.conn() as c:
-        with c.cursor() as cur:
-            cur.execute("DELETE FROM sessions WHERE datetime(expires_at) <= CURRENT_TIMESTAMP")
-            n = cur.rowcount
+        cur = c.execute("DELETE FROM sessions WHERE datetime(expires_at) <= CURRENT_TIMESTAMP")
+        n = cur.rowcount
         c.commit()
     if n:
         logger.info("[AUTH] Đã xoá %d session hết hạn", n)

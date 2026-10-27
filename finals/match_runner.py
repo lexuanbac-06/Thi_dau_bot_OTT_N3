@@ -269,13 +269,12 @@ def enqueue_match(
 
     # Tạo record DB
     with db.conn() as c:
-        with c.cursor() as cur:
-            cur.execute(
-                """INSERT INTO matches(request_id, player_a, player_b, status)
-                   VALUES (?, ?, ?, 'pending')""",
-                (request_id, player_a, player_b),
-            )
-            match_id = cur.lastrowid
+        cur = c.execute(
+            """INSERT INTO matches(request_id, player_a, player_b, status)
+               VALUES (?, ?, ?, 'pending')""",
+            (request_id, player_a, player_b),
+        )
+        match_id = cur.lastrowid
         c.commit()
 
     task = {

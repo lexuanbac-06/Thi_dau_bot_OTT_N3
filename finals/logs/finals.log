@@ -19,3 +19,47 @@
 2026-10-24 00:14:15 INFO    finals.db                [DB] Schema migration hoàn tất.
 2026-10-24 00:14:15 INFO    finals.db                [DB] Schema migration hoàn tất.
 2026-10-24 00:14:15 INFO    finals.runner            [RUNNER] Đã enqueue: alice vs bob | request_id=f19dcb79-440e-4da9-8d66-f90aa3b327f9 match_id=42 queue_size=1
+2026-10-27 11:15:52 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\logs\finals.log
+2026-10-27 11:15:52 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-27 11:15:52 INFO    finals.db                [DB] SQLite sẵn sàng: C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\finals.db
+2026-10-27 11:15:52 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-27 11:15:52 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-27 11:15:52 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-27 11:15:52 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-27 11:20:10 INFO    finals.app               [APP] Login attempt: test_ck_01
+2026-10-27 11:20:10 INFO    finals.auth              [AUTH] Đăng nhập thành công: test_ck_01
+2026-10-27 11:20:23 INFO    finals.auth              [AUTH] Đăng xuất token ...f0dc8ab3
+2026-10-27 11:20:30 INFO    finals.app               [APP] Login attempt: test_ck_02
+2026-10-27 11:20:30 INFO    finals.auth              [AUTH] Đăng nhập thành công: test_ck_02
+2026-10-27 11:20:41 INFO    finals.app               [APP] Đã snapshot bot: test_ck_01 → C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\..\snaps\finals\test_ck_01.py
+2026-10-27 11:20:42 INFO    finals.app               [APP] Đã snapshot bot: test_ck_02 → C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\..\snaps\finals\test_ck_02.py
+2026-10-27 11:20:48 INFO    finals.app               [APP] Yêu cầu tạo trận: test_ck_01 vs test_ck_02 (request_id=None)
+2026-10-27 11:20:48 ERROR   finals.app               [APP] Lỗi hệ thống: 'sqlite3.Cursor' object does not support the context manager protocol
+Traceback (most recent call last):
+  File "C:\Users\ACER\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+  File "C:\Users\ACER\AppData\Local\Programs\Python\Python313\Lib\site-packages\flask\app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\app.py", line 230, in create_match
+    result = match_runner.enqueue_match(
+        player_a, player_b, request_id, snap_dir=FINALS_SNAP_DIR, live_delay=live_delay
+    )
+  File "C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\match_runner.py", line 272, in enqueue_match
+    with c.cursor() as cur:
+         ~~~~~~~~^^
+TypeError: 'sqlite3.Cursor' object does not support the context manager protocol
+2026-10-27 11:22:31 INFO    finals                   [LOG] Logging khởi tạo. Cấp console=INFO, file=DEBUG → C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\logs\finals.log
+2026-10-27 11:22:31 INFO    finals.app               [APP] Khởi động backend chung kết...
+2026-10-27 11:22:31 INFO    finals.db                [DB] SQLite sẵn sàng: C:\code\Thư mục mới\Thi_dau_bot_OTT_N3\finals\finals.db
+2026-10-27 11:22:31 INFO    finals.db                [DB] Schema migration hoàn tất.
+2026-10-27 11:22:31 INFO    finals.runner            [DISPATCHER] Bắt đầu lắng nghe hàng đợi...
+2026-10-27 11:22:31 INFO    finals.runner            [RUNNER] Khởi động: 4 workers, queue_max=200
+2026-10-27 11:22:31 INFO    finals.app               [APP] Sẵn sàng.
+2026-10-27 11:23:08 INFO    finals.app               [APP] Yêu cầu tạo trận: test_ck_01 vs test_ck_02 (request_id=None)
+2026-10-27 11:23:09 INFO    finals.runner            [RUNNER] Đã enqueue: test_ck_01 vs test_ck_02 | request_id=bd08550b-ba04-4154-bbcb-1180de83654e match_id=1 queue_size=1
+2026-10-27 11:23:09 INFO    finals.runner            [MATCH:bd08550b-ba04-4154-bbcb-1180de83654e] Bắt đầu: test_ck_01 vs test_ck_02 (live_delay=0.40s)
+2026-10-27 11:23:09 DEBUG   finals.live              [LIVE:bd08550b-ba04-4154-bbcb-1180de83654e] Khách mới kết nối stream (tổng: 1)
+2026-10-27 11:24:36 INFO    finals.runner            [MATCH:bd08550b-ba04-4154-bbcb-1180de83654e] Kết thúc: test_ck_01 1-0 test_ck_02 (87.1s)
+2026-10-27 11:24:36 DEBUG   finals.runner            [STANDINGS] Cập nhật: test_ck_01, test_ck_02 (score=1)
+2026-10-27 11:24:36 DEBUG   finals.live              [LIVE:bd08550b-ba04-4154-bbcb-1180de83654e] Khách đã ngắt kết nối
