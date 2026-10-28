@@ -2,7 +2,7 @@
 
 OTTv2 là ứng dụng tổ chức giải bot chơi Oẳn Tù Tì trên bàn cờ 9×9. Thí sinh đăng nhập, viết bot Python, nộp để đấu với bot chuẩn hoặc đối thủ được ghép trong giải, rồi theo dõi điểm số và xem lại ván đấu. Ban tổ chức quản lý tài khoản, lịch thi, bảng đấu, kết quả và trạng thái hệ thống.
 
-Các vòng 1–4 được thiết kế để thi online. Vòng offline thứ năm chưa được triển khai. Supabase là nguồn dữ liệu chuẩn; SQLite và một số dịch vụ cũ chỉ còn trong vùng legacy hoặc môi trường phát triển.
+Các vòng 1–4 được tổ chức online trên hệ thống chính. Chung kết offline là ứng dụng riêng chạy tại điểm thi trên LAN, dùng SQLite cục bộ và bộ luật Vòng 5. Supabase là nguồn dữ liệu chuẩn cho giải online; SQLite của ứng dụng chung kết là ngoại lệ có chủ đích.
 
 ## Kiến trúc và luồng dữ liệu
 
@@ -65,7 +65,27 @@ Ngưỡng đạt là `-2`. Mỗi thí sinh có tối đa 20 lượt và hệ th�
 - Cấu hình đi tiếp hiện tại: V1 `10 người/bảng + 40 vé vớt`; V2 `8 + 16`; V3 `6 + 8`; V4 `4 + 4`.
 - Trong ngày, thí sinh thấy trận và đối thủ của mình. Bảng tạm dành cho admin; kết quả chính thức/replay được công bố theo `publish_after`.
 
-Chi tiết luật, cách chốt ngày, bye và xét vé vớt xem [`docs/TOURNAMENT_OPERATIONS.md`](docs/TOURNAMENT_OPERATIONS.md). Vòng offline thứ năm nằm ngoài phạm vi triển khai hiện tại.
+Chi tiết luật, cách chốt ngày, bye và xét vé vớt xem [`docs/TOURNAMENT_OPERATIONS.md`](docs/TOURNAMENT_OPERATIONS.md).
+
+### Chung kết offline
+
+Chung kết là ứng dụng Flask độc lập trong `finals/`, không phải Vòng 5 được tạo trên web giải chính. Sau khi Vòng 4 kết thúc, BTC xuất roster finalist trên web chính, chuyển CSV sang máy chủ chung kết và import trước ngày thi. Ứng dụng tạo tài khoản cục bộ cùng mật khẩu tạm ngẫu nhiên; mật khẩu được trả về dưới dạng CSV riêng khi import. Import lại roster sẽ cấp mật khẩu mới cho các tài khoản trong roster, vì vậy hãy lưu và phân phối file thông tin đăng nhập an toàn.
+
+Tại điểm thi, máy chủ chạy engine chung kết và SQLite cục bộ; thí sinh truy cập ứng dụng qua mạng LAN để đăng nhập, nộp bot và theo dõi trận đấu, replay cùng bảng xếp hạng. BTC quản lý tài khoản, chốt bot dự thi và điều phối các trận. Chung kết dùng bộ luật Vòng 5 (có ô đổi loại quân), không phụ thuộc Internet, Supabase, Judge0 hay scoring module. Chỉ việc xuất roster từ giải chính cần kết nối Supabase.
+
+Để chạy máy chủ chung kết từ thư mục gốc repo:
+
+```sh
+python -m pip install -r requirements.txt
+```
+
+Sao chép `finals/.env.example` thành `finals/.env`, đặt `FINALS_ADMIN_SECRET` thành giá trị bí mật riêng, rồi khởi động:
+
+```sh
+python -m finals.run_server
+```
+
+Máy chủ mặc định lắng nghe cổng `9000`; thí sinh mở `http://<IP-máy-chủ-trong-LAN>:9000/finals`. Cấu hình cổng và đường dẫn SQLite có thể đặt lần lượt bằng `FINALS_PORT` và `FINALS_DB_PATH`. Không đưa máy chủ chung kết ra Internet. Trước ngày thi, hãy import roster, phân phối thông tin đăng nhập qua kênh an toàn, sao lưu SQLite và bot snapshots, rồi kiểm thử toàn bộ luồng khi đã ngắt WAN. Xem thêm [quy trình vận hành giải](docs/TOURNAMENT_OPERATIONS.md).
 
 ## Chấm bài và hàng đợi proxy
 
